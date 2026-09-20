@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyRow
@@ -283,11 +284,7 @@ fun getSavedLoggedInUserPhone(context: Context): String? {
 }
 
 fun getDeviceIdentifier(context: Context): Pair<String, String> {
-  val deviceId = try {
-    android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "DEVICE_${Build.SERIAL}"
-  } catch (e: Exception) {
-    "DEV_${Build.MODEL}_${Build.ID}"
-  }
+  val deviceId = PersistentTrialSecurityManager.getHardwareDeviceId(context)
   val manufacturer = Build.MANUFACTURER?.replaceFirstChar { it.uppercase() } ?: "Android"
   val model = Build.MODEL ?: "Phone"
   val deviceName = "$manufacturer $model"
@@ -327,6 +324,26 @@ fun isAuthorizedAdminUser(phoneOrEmail: String?): Boolean {
   val clean = phoneOrEmail.trim().lowercase()
   return clean == "0772843861" || clean == "0717136085" || clean == "prabathakila450@gmail.com" ||
          clean == "+94772843861" || clean == "+94717136085" || clean == "94772843861" || clean == "94717136085"
+}
+
+fun saveAdminMasterPassword(context: Context, pass: String) {
+  val prefs = context.getSharedPreferences("app_user_auth_store", Context.MODE_PRIVATE)
+  prefs.edit().putString("admin_master_password", pass).apply()
+}
+
+fun getAdminMasterPassword(context: Context): String {
+  val prefs = context.getSharedPreferences("app_user_auth_store", Context.MODE_PRIVATE)
+  return prefs.getString("admin_master_password", null) ?: "A20020521PD"
+}
+
+fun setAdminSessionActive(context: Context, active: Boolean) {
+  val prefs = context.getSharedPreferences("app_user_auth_store", Context.MODE_PRIVATE)
+  prefs.edit().putBoolean("is_admin_session_active", active).apply()
+}
+
+fun isAdminSessionActive(context: Context): Boolean {
+  val prefs = context.getSharedPreferences("app_user_auth_store", Context.MODE_PRIVATE)
+  return prefs.getBoolean("is_admin_session_active", false)
 }
 
 data class SubjectItem(
@@ -415,13 +432,18 @@ fun openPdfFile(context: Context, pdfUriString: String?) {
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    // Apply screen capture & recording protection according to device status & settings
-    val isScreenProtectionActive = AppSecurityManager.isScreenProtectionEnabled(this)
-    AppSecurityManager.applyScreenProtection(this, isScreenProtectionActive)
+    // Apply 100% hardware FLAG_SECURE on real devices (while keeping emulator preview visible)
+    AppSecurityManager.applyScreenProtection(this, true)
     enableEdgeToEdge()
     setContent {
       StudentPortalApp()
     }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    // Re-enforce 100% FLAG_SECURE whenever app regains focus or resumes
+    AppSecurityManager.applyScreenProtection(this, true)
   }
 }
 
@@ -444,8 +466,8 @@ fun StudentPortalApp() {
       UserAccount("1", "අකිල ප්‍රබාත් (Admin)", "0772843861", "A20020521PD", isApproved = true, paymentStatus = "Approved", requestedGradePackage = "06 සිට 11 දක්වා සියලුම ශ්‍රේණි (All Grades Mega Pack)", approvedGrades = listOf("06", "07", "08", "09", "10", "11", "6 ශ්‍රේණිය", "7 ශ්‍රේණිය", "8 ශ්‍රේණිය", "9 ශ්‍රේණිය", "10 ශ්‍රේණිය", "11 ශ්‍රේණිය")),
       UserAccount("2", "අකිල ප්‍රබාත් (Admin)", "0717136085", "A20020521PD", isApproved = true, paymentStatus = "Approved", requestedGradePackage = "06 සිට 11 දක්වා සියලුම ශ්‍රේණි (All Grades Mega Pack)", approvedGrades = listOf("06", "07", "08", "09", "10", "11", "6 ශ්‍රේණිය", "7 ශ්‍රේණිය", "8 ශ්‍රේණිය", "9 ශ්‍රේණිය", "10 ශ්‍රේණිය", "11 ශ්‍රේණිය")),
       UserAccount("3", "Akila Prabath (Admin)", "prabathakila450@gmail.com", "A20020521PD", isApproved = true, paymentStatus = "Approved", requestedGradePackage = "06 සිට 11 දක්වා සියලුම ශ්‍රේණි (All Grades Mega Pack)", approvedGrades = listOf("06", "07", "08", "09", "10", "11", "6 ශ්‍රේණිය", "7 ශ්‍රේණිය", "8 ශ්‍රේණිය", "9 ශ්‍රේණිය", "10 ශ්‍රේණිය", "11 ශ්‍රේණිය")),
-      UserAccount("4", "කසුන් පෙරේරා (ශිෂ්‍ය)", "0719876543", "1234", isApproved = true, paymentStatus = "Approved", requestedGradePackage = "10 සහ 11 ශ්‍රේණි (O/L Combo Pack)", approvedGrades = listOf("10", "11", "10 ශ්‍රේණිය", "11 ශ්‍රේණිය")),
-      UserAccount("5", "නිරෝෂා කුමාරි (ශිෂ්‍ය)", "0755554433", "1234", isApproved = true, paymentStatus = "Approved", requestedGradePackage = "08 ශ්‍රේණිය (Grade 8 Single Pack)", approvedGrades = listOf("08", "8", "8 ශ්‍රේණිය"))
+      UserAccount("4", "කසුන් පෙරේරා (ශිෂ්‍ය)", "0719876543", "1234", isApproved = false, paymentStatus = "Pending", requestedGradePackage = "10 සහ 11 ශ්‍රේණි (O/L Combo Pack)", approvedGrades = emptyList()),
+      UserAccount("5", "නිරෝෂා කුමාරි (ශිෂ්‍ය)", "0755554433", "1234", isApproved = false, paymentStatus = "Pending", requestedGradePackage = "08 ශ්‍රේණිය (Grade 8 Single Pack)", approvedGrades = emptyList())
     )
 
     if (saved.isNotEmpty()) {
@@ -481,6 +503,7 @@ fun StudentPortalApp() {
   var showGradeNotApprovedDialog by remember { mutableStateOf(false) }
   var gradeNotApprovedTarget by remember { mutableStateOf("11") }
   var preselectedGradeForApproval by remember { mutableStateOf("10 සහ 11 ශ්‍රේණි (O/L Combo Pack)") }
+  var showAdminDashboardMasterDialog by remember { mutableStateOf(false) }
 
   // Automatic Device & Phone Verification on Launch (Zero-Friction Direct Auto-Login for Approved Users)
   LaunchedEffect(Unit) {
@@ -491,27 +514,36 @@ fun StudentPortalApp() {
 
     // 1. Check by saved logged in phone number
     if (!savedPhone.isNullOrBlank()) {
-      matchingUser = registeredUsers.find { 
+      val candidate = registeredUsers.find { 
         it.usernameOrPhone.trim().equals(savedPhone.trim(), ignoreCase = true)
       }
-    }
-
-    // 2. Check by bound device identifier
-    if (matchingUser == null) {
-      matchingUser = registeredUsers.find { 
-        it.isApproved && it.boundDeviceId == currDevId
+      // Strict multi-device defense: If account is locked to a different phone hardware, do not auto-login
+      if (candidate != null && !isAuthorizedAdminUser(candidate.usernameOrPhone) && candidate.boundDeviceId != null && candidate.boundDeviceId != currDevId) {
+        saveLoggedInUserPhone(context, null)
+        matchingUser = null
+      } else {
+        matchingUser = candidate
       }
     }
 
-    // 3. Check for pre-approved account (0772843861, 0717136085, prabathakila450@gmail.com)
+    // 2. Check by bound device identifier (Students only)
     if (matchingUser == null) {
       matchingUser = registeredUsers.find { 
-        it.isApproved && isAuthorizedAdminUser(it.usernameOrPhone)
+        it.isApproved && !isAuthorizedAdminUser(it.usernameOrPhone) && it.boundDeviceId == currDevId
       }
     }
 
-    // 4. Auto-login verified approved user seamlessly without blocking
+    // Admin authentication verification
+    val adminSessionActive = isAdminSessionActive(context)
+    if (matchingUser != null && isAuthorizedAdminUser(matchingUser.usernameOrPhone)) {
+      if (!adminSessionActive) {
+        matchingUser = null // Prevent unauthorized admin auto-login
+      }
+    }
+
+    // 3. Auto-login verified approved user seamlessly without blocking
     if (matchingUser != null && matchingUser.isApproved) {
+      val isThisAdmin = isAuthorizedAdminUser(matchingUser.usernameOrPhone) && adminSessionActive
       val verifiedUser = matchingUser.copy(
         boundDeviceId = matchingUser.boundDeviceId ?: currDevId,
         boundDeviceName = matchingUser.boundDeviceName ?: currDevName,
@@ -523,7 +555,7 @@ fun StudentPortalApp() {
         registeredUsers[idx] = verifiedUser
       }
       loggedInUser = verifiedUser
-      isAdminAuthenticated = isAuthorizedAdminUser(verifiedUser.usernameOrPhone)
+      isAdminAuthenticated = isThisAdmin
       saveLoggedInUserPhone(context, verifiedUser.usernameOrPhone)
       saveUsersToPreferences(context, registeredUsers.toList())
       val roleTag = if (isAdminAuthenticated) "👑 ඇඩ්මින් පාලනය" else "🎓 ශිෂ්‍ය ගිණුම"
@@ -572,23 +604,33 @@ fun StudentPortalApp() {
 
   val isApprovedUser = isAdminAuthenticated || (loggedInUser != null && loggedInUser?.isApproved == true)
 
-  // 1-Day Free Trial for Feature Hub (Smart Study Hub) from Install Timestamp
-  val sharedPrefs = remember { context.getSharedPreferences("app_trial_prefs", Context.MODE_PRIVATE) }
-  var installTimestamp by remember {
-    val saved = sharedPrefs.getLong("install_timestamp", 0L)
-    if (saved == 0L) {
-      val current = System.currentTimeMillis()
-      sharedPrefs.edit().putLong("install_timestamp", current).apply()
-      mutableStateOf(current)
-    } else {
-      mutableStateOf(saved)
+  // 12-Hour 100% Free Trial for all Features & Grades from Initial Install Timestamp
+  // Robustly persistent across app uninstall & re-download
+  var isTrialActiveState by remember { mutableStateOf(PersistentTrialSecurityManager.isTrialActive(context)) }
+  var remainingTrialHours by remember { mutableStateOf(PersistentTrialSecurityManager.getRemainingHoursMinutes(context).first) }
+  var remainingTrialMinutes by remember { mutableStateOf(PersistentTrialSecurityManager.getRemainingHoursMinutes(context).second) }
+
+  // Active real-time timer ticker (ticks every 2 seconds for 100% accuracy)
+  LaunchedEffect(Unit) {
+    while (true) {
+      kotlinx.coroutines.delay(2000L)
+      isTrialActiveState = PersistentTrialSecurityManager.isTrialActive(context)
+      val (h, m) = PersistentTrialSecurityManager.getRemainingHoursMinutes(context)
+      remainingTrialHours = h
+      remainingTrialMinutes = m
     }
   }
 
-  val oneDayMillis = 24 * 60 * 60 * 1000L
-  val timeElapsed = System.currentTimeMillis() - installTimestamp
-  val isFeatureTrialActive = timeElapsed < oneDayMillis
-  val remainingTrialHours = (((oneDayMillis - timeElapsed).coerceAtLeast(0L)) / (60 * 60 * 1000L)).toInt().coerceIn(0, 24)
+  val isFeatureTrialActive = isTrialActiveState
+
+  // Real-time VPN & Proxy detection polling (100% blocks access when VPN is active)
+  var isVpnDetected by remember { mutableStateOf(AppSecurityManager.isVpnConnected(context)) }
+  LaunchedEffect(Unit) {
+    while (true) {
+      isVpnDetected = AppSecurityManager.isVpnConnected(context)
+      kotlinx.coroutines.delay(2000L)
+    }
+  }
 
   fun requireFeatureAccess(onSuccess: () -> Unit) {
     if (isApprovedUser || isFeatureTrialActive) {
@@ -596,7 +638,7 @@ fun StudentPortalApp() {
     } else {
       Toast.makeText(
         context,
-        "🔒 ඇප් එක ඉන්ස්ටෝල් කිරීමෙන් පසු දින 1ක නොමිලේ කාලය අවසන් වී ඇත. විශේෂාංග කලාපය පරිශීලනය කිරීමට කරුණාකර ඇඩ්මින් අනුමැතිය (Admin Approval) ලබාගන්න.",
+        "🔒 ඇප් එක ඉන්ස්ටෝල් කිරීමෙන් පසු පැය 12ක නොමිලේ කාලය අවසන් වී ඇත. විශේෂාංග පරිශීලනය කිරීමට කරුණාකර ඇඩ්මින් අනුමැතිය (Admin Approval) ලබාගන්න.",
         Toast.LENGTH_LONG
       ).show()
       if (loggedInUser == null) {
@@ -631,11 +673,38 @@ fun StudentPortalApp() {
   // AI Audio Podcasts & Deep Index State
   var activeAudioState by remember { mutableStateOf<ActiveAudioState?>(null) }
 
+  // Automatic redirect back to initial HOME screen when the 12-hour free trial expires
+  // Note: Admin approval dialog is NOT shown automatically; it only triggers when user clicks a protected feature
+  LaunchedEffect(isFeatureTrialActive, isApprovedUser) {
+    if (!isFeatureTrialActive && !isApprovedUser) {
+      if (currentScreen != "HOME") {
+        currentScreen = "HOME"
+        selectedTabNav = 0
+      }
+      // Immediately dismiss any open protected readers, players or quizzes
+      showIframePdfModal = false
+      showPasswordDialog = false
+      activeQuizSet = null
+      showFlashcardsDialog = false
+      showPdfQuizBottomSheet = false
+      activeAudioState = null
+    }
+  }
+
   fun performProtectedAction(action: () -> Unit) {
-    if (isApprovedUser) {
+    if (isApprovedUser || isFeatureTrialActive) {
       action()
     } else {
-      showPaymentApprovalDialog = true
+      Toast.makeText(
+        context,
+        "🔒 පැය 12ක නොමිලේ අත්හදා බැලීමේ කාලය අවසන් වී ඇත. විශේෂාංග පරිශීලනයට ඇඩ්මින් අනුමැතිය (Admin Approval) ලබාගන්න.",
+        Toast.LENGTH_LONG
+      ).show()
+      if (loggedInUser == null) {
+        showAuthRequiredDialog = true
+      } else {
+        showPaymentApprovalDialog = true
+      }
     }
   }
 
@@ -685,22 +754,25 @@ fun StudentPortalApp() {
     requiredPassword: String? = "1234",
     targetGrade: String = selectedGrade
   ) {
-    // 1. Check if the user is approved (isApproved == true). If not, show Unlimited Access Payment Dialog.
-    if (!isApprovedUser) {
+    // 1. 100% Free for first 12 hours from install, then strictly requires admin approval
+    val hasAccess = isApprovedUser || isFeatureTrialActive
+    if (!hasAccess) {
       preselectedGradeForApproval = when (targetGrade) {
-        "10", "11" -> "10 සහ 11 ශ්‍රේණි (O/L Combo Pack)"
-        "06" -> "06 ශ්‍රේණිය (Grade 6 Single Pack)"
-        "07" -> "07 ශ්‍රේණිය (Grade 7 Single Pack)"
-        "08" -> "08 ශ්‍රේණිය (Grade 8 Single Pack)"
-        "09" -> "09 ශ්‍රේණිය (Grade 9 Single Pack)"
+        "10" -> "10 ශ්‍රේණිය (Grade 10 Single Pack)"
+        "11" -> "11 ශ්‍රේණිය (Grade 11 Single Pack)"
         else -> "10 සහ 11 ශ්‍රේණි (O/L Combo Pack)"
       }
+      Toast.makeText(
+        context,
+        "🔒 පැය 12ක නොමිලේ අත්හදා බැලීමේ කාලය අවසන් වී ඇත. PDF කියවීමට කරුණාකර ඇඩ්මින් අනුමැතිය (Admin Approval) ලබාගන්න.",
+        Toast.LENGTH_LONG
+      ).show()
       showPaymentApprovalDialog = true
       return
     }
 
-    // 2. Check if user is approved for this specific Grade
-    if (!isUserApprovedForGrade(loggedInUser, targetGrade, isAdminAuthenticated)) {
+    // 2. Check if user is approved for this specific Grade (enforced after 12h free trial)
+    if (!isFeatureTrialActive && !isUserApprovedForGrade(loggedInUser, targetGrade, isAdminAuthenticated)) {
       gradeNotApprovedTarget = targetGrade
       showGradeNotApprovedDialog = true
       return
@@ -877,7 +949,7 @@ fun StudentPortalApp() {
   var inputSubject by remember { mutableStateOf("විද්‍යාව") }
   var inputExtraInfo by remember { mutableStateOf("") }
 
-  val gradesList = listOf("06", "07", "08", "09", "10", "11")
+  val gradesList = listOf("10", "11")
 
   // Dynamic live lists for current grade
   val currentSubjects = remember(liveSubjectsMap, selectedGrade) {
@@ -951,6 +1023,9 @@ fun StudentPortalApp() {
       }
       currentScreen == "ENGLISH_SHORT_NOTES_AUTO_CHECKER" -> {
         currentScreen = "ENGLISH_BUILDER"
+      }
+      currentScreen == "GRADE_10_11_MATH_SHORT_NOTES" -> {
+        currentScreen = if (selectedSubjectItem != null) "CONTENT" else "HOME"
       }
       currentScreen in listOf("ANALYTICS", "STRUCTURED_ESSAY", "FORMULA_HANDBOOK", "VOICE_QUIZ", "ENGLISH_BUILDER", "FLASHCARDS_HUB", "SPOKEN_ENGLISH_VOICE", "BOOKMARKS_HUB", "EYE_CARE_HUB", "HISTORY_MAPS_AUTO_CHECKER", "MISTAKE_NOTEBOOK", "MOCK_EXAM", "SPOT_TOPICS") -> {
         currentScreen = "HOME"
@@ -1080,7 +1155,12 @@ fun StudentPortalApp() {
       // Background Subtle Text Accent
       WatermarkBackground()
 
-      if (currentScreen == "SYLLABUS_HUB") {
+      // CRITICAL 100% SECURITY BARRIER:
+      // If 12 hours free trial has expired and user is not an approved student or admin,
+      // force effectiveScreen to "HOME". Absolutely no sub-features or secondary screens can render.
+      val effectiveScreen = if (!isApprovedUser && !isFeatureTrialActive) "HOME" else currentScreen
+
+      if (effectiveScreen == "SYLLABUS_HUB") {
         // FEATURE: SYLLABUS DETECTION & GOOGLE DRIVE CONTENT HUB SCREEN (06 - 11 ශ්‍රේණි)
         SyllabusDetectionAndContentScreen(
           initialGrade = selectedGrade,
@@ -1098,7 +1178,8 @@ fun StudentPortalApp() {
             currentScreen = if (selectedSubjectItem != null) "CONTENT" else "HOME"
           },
           onOpenGoogleDrivePdfModal = { url, title ->
-            if (!isApprovedUser) {
+            val hasAccess = isApprovedUser || isFeatureTrialActive
+            if (!hasAccess) {
               Toast.makeText(context, "🔒 මෙම පීඩීඑෆ් සටහන් හා ප්‍රශ්න පත්‍ර පරිශීලනය කිරීමට ඇඩ්මින් අනුමැතිය (Admin Approval) අවශ්‍ය වේ.", Toast.LENGTH_LONG).show()
               if (loggedInUser == null) {
                 showAuthRequiredDialog = true
@@ -1112,7 +1193,7 @@ fun StudentPortalApp() {
             }
           }
         )
-      } else if (currentScreen == "ANALYTICS") {
+      } else if (effectiveScreen == "ANALYTICS") {
         // FEATURE 2: DETAILED ANALYTICS SCREEN WITH WEAK AREAS DETECTOR & DIRECT ACTION BUTTONS
         StudyAnalyticsScreen(
           grade = selectedGrade,
@@ -1153,7 +1234,7 @@ fun StudentPortalApp() {
             }
           }
         )
-      } else if (currentScreen == "STRUCTURED_ESSAY") {
+      } else if (effectiveScreen == "STRUCTURED_ESSAY") {
         // FEATURE 3: STRUCTURED & ESSAY PRACTICE HUB
         StructuredEssayHubScreen(
           grade = selectedGrade,
@@ -1162,7 +1243,7 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "FORMULA_HANDBOOK") {
+      } else if (effectiveScreen == "FORMULA_HANDBOOK") {
         // FEATURE 5: QUICK REFERENCE FORMULA & TIMELINE HUB (WITH TARGETED WEAK TOPIC FILTERING)
         FormulaAndTimelineHubScreen(
           initialQuery = initialFormulaQuery,
@@ -1175,7 +1256,7 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "VOICE_QUIZ") {
+      } else if (effectiveScreen == "VOICE_QUIZ") {
         // FEATURE 3 (VOICE): AI VOICE QUIZ & ORAL SIMULATION SCREEN
         VoiceQuizScreen(
           onBack = {
@@ -1183,7 +1264,7 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "ENGLISH_BUILDER" || currentScreen == "ENGLISH_CLASS") {
+      } else if (effectiveScreen == "ENGLISH_BUILDER" || effectiveScreen == "ENGLISH_CLASS") {
         // ENGLISH MASTER CLASS SCREEN (Vertical Accordion Sub-Sections with Background Photos & Voice Mic AI)
         EnglishMasterClassScreen(
           onBack = {
@@ -1191,7 +1272,8 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           },
           onOpenGoogleDrivePdfModal = { url, title ->
-            if (!isApprovedUser) {
+            val hasAccess = isApprovedUser || isFeatureTrialActive
+            if (!hasAccess) {
               Toast.makeText(context, "🔒 මෙම පීඩීඑෆ් සටහන් හා ප්‍රශ්න පත්‍ර පරිශීලනය කිරීමට ඇඩ්මින් අනුමැතිය (Admin Approval) අවශ්‍ය වේ.", Toast.LENGTH_LONG).show()
               if (loggedInUser == null) {
                 showAuthRequiredDialog = true
@@ -1213,7 +1295,7 @@ fun StudentPortalApp() {
           },
           initialSubTab = englishInitialSubTab
         )
-      } else if (currentScreen == "FLASHCARDS_HUB") {
+      } else if (effectiveScreen == "FLASHCARDS_HUB") {
         // FEATURE: INTERACTIVE FLASHCARDS SCREEN
         InteractiveFlashcardsScreen(
           onBack = {
@@ -1221,7 +1303,7 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "SPOKEN_ENGLISH_VOICE") {
+      } else if (effectiveScreen == "SPOKEN_ENGLISH_VOICE") {
         // SPOKEN ENGLISH IS INTEGRATED INSIDE ENGLISH CLASS (SubTab 2)
         EnglishMasterClassScreen(
           onBack = {
@@ -1229,7 +1311,8 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           },
           onOpenGoogleDrivePdfModal = { url, title ->
-            if (!isApprovedUser) {
+            val hasAccess = isApprovedUser || isFeatureTrialActive
+            if (!hasAccess) {
               Toast.makeText(context, "🔒 මෙම පීඩීඑෆ් සටහන් හා ප්‍රශ්න පත්‍ර පරිශීලනය කිරීමට ඇඩ්මින් අනුමැතිය (Admin Approval) අවශ්‍ය වේ.", Toast.LENGTH_LONG).show()
               if (loggedInUser == null) {
                 showAuthRequiredDialog = true
@@ -1251,7 +1334,7 @@ fun StudentPortalApp() {
           },
           initialSubTab = 2
         )
-      } else if (currentScreen == "BOOKMARKS_HUB") {
+      } else if (effectiveScreen == "BOOKMARKS_HUB") {
         // FEATURE 5 (NEW): BOOKMARK & SAVED NOTES SCREEN
         BookmarksAndFavoritesScreen(
           onBack = {
@@ -1259,7 +1342,8 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           },
           onOpenPdf = { url, title ->
-            if (!isApprovedUser) {
+            val hasAccess = isApprovedUser || isFeatureTrialActive
+            if (!hasAccess) {
               Toast.makeText(context, "🔒 මෙම පීඩීඑෆ් පරිශීලනයට ඇඩ්මින් අනුමැතිය (Admin Approval) අවශ්‍ය වේ.", Toast.LENGTH_LONG).show()
               if (loggedInUser == null) {
                 showAuthRequiredDialog = true
@@ -1274,7 +1358,7 @@ fun StudentPortalApp() {
           },
           savedBookmarks = savedBookmarks
         )
-      } else if (currentScreen == "MOCK_EXAM") {
+      } else if (effectiveScreen == "MOCK_EXAM") {
         // FEATURE: LIVE MOCK EXAM HALL & OMR SIMULATOR
         LiveMockExamHallScreen(
           grade = selectedGrade,
@@ -1288,7 +1372,7 @@ fun StudentPortalApp() {
             }
           }
         )
-      } else if (currentScreen == "MISTAKE_NOTEBOOK") {
+      } else if (effectiveScreen == "MISTAKE_NOTEBOOK") {
         // FEATURE 2: MISTAKE NOTEBOOK & TARGETED REVISION BANK (WITH TARGETED WEAK TOPIC FILTERING)
         MistakeNotebookScreen(
           grade = selectedGrade,
@@ -1317,7 +1401,7 @@ fun StudentPortalApp() {
             }
           }
         )
-      } else if (currentScreen == "SPOT_TOPICS") {
+      } else if (effectiveScreen == "SPOT_TOPICS") {
         // FEATURE: EXAM SPOT TOPICS & HIGH-PROBABILITY PREDICTOR
         ExamSpotTopicsScreen(
           grade = selectedGrade,
@@ -1326,7 +1410,8 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           },
           onOpenPdfModal = { url, title ->
-            if (!isApprovedUser) {
+            val hasAccess = isApprovedUser || isFeatureTrialActive
+            if (!hasAccess) {
               Toast.makeText(context, "🔒 මෙම පීඩීඑෆ් පරිශීලනයට ඇඩ්මින් අනුමැතිය (Admin Approval) අවශ්‍ය වේ.", Toast.LENGTH_LONG).show()
               if (loggedInUser == null) {
                 showAuthRequiredDialog = true
@@ -1340,7 +1425,7 @@ fun StudentPortalApp() {
             }
           }
         )
-      } else if (currentScreen == "LIVE_DAILY_QUIZ") {
+      } else if (effectiveScreen == "LIVE_DAILY_QUIZ") {
         // FEATURE: 7:00 PM AUTOMATED DAILY LIVE QUIZ CONTEST & LEADERBOARDS
         DailyLiveQuizHubScreen(
           initialGrade = selectedGrade,
@@ -1352,7 +1437,7 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "EYE_CARE_HUB") {
+      } else if (effectiveScreen == "EYE_CARE_HUB") {
         // FEATURE: EYE-CARE & NIGHT STUDY READER HUB
         EyeCareNightStudyScreen(
           currentMode = activeEyeCareMode,
@@ -1368,7 +1453,7 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "HISTORY_MAPS_AUTO_CHECKER") {
+      } else if (effectiveScreen == "HISTORY_MAPS_AUTO_CHECKER") {
         // FEATURE: 09/10/11 HISTORY BLANK MAPS MARKING & 100% AUTO-CHECKER HUB
         HistoryMapsAutoCheckerScreen(
           onBack = {
@@ -1381,7 +1466,7 @@ fun StudentPortalApp() {
             showIframePdfModal = true
           }
         )
-      } else if (currentScreen == "SCIENCE_500_AUTO_CHECKER") {
+      } else if (effectiveScreen == "SCIENCE_500_AUTO_CHECKER") {
         // FEATURE: 11 SCIENCE 500 QUESTIONS & 100% EXPLANATION AUTO-CHECKER HUB
         Science500QuestionsAutoCheckerScreen(
           onBack = {
@@ -1394,7 +1479,7 @@ fun StudentPortalApp() {
             showIframePdfModal = true
           }
         )
-      } else if (currentScreen == "ENGLISH_SHORT_NOTES_AUTO_CHECKER") {
+      } else if (effectiveScreen == "ENGLISH_SHORT_NOTES_AUTO_CHECKER") {
         // FEATURE: 09/10/11 ENGLISH SHORT NOTES & 100% EXPLANATION AUTO-CHECKER HUB
         EnglishShortNotesAutoCheckerScreen(
           onBack = {
@@ -1406,7 +1491,7 @@ fun StudentPortalApp() {
             showIframePdfModal = true
           }
         )
-      } else if (currentScreen == "GEOGRAPHY_AUTO_CHECKER") {
+      } else if (effectiveScreen == "GEOGRAPHY_AUTO_CHECKER") {
         // FEATURE: 10 & 11 GEOGRAPHY SHORT NOTES 100% ACCURATE AUTO-CHECKER HUB
         GeographyAutoCheckerScreen(
           onBack = {
@@ -1414,7 +1499,20 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "OL_SPECIAL_FEATURES") {
+      } else if (effectiveScreen == "GRADE_10_11_MATH_SHORT_NOTES") {
+        // 📐 FEATURE: 10 & 11 ශ්‍රේණි ගණිතය කෙටි සටහන් (Sandu Theory ඒකක 42 & විසඳුම්)
+        Grade10And11MathShortNotesHubScreen(
+          onBack = {
+            currentScreen = if (selectedSubjectItem != null) "CONTENT" else "HOME"
+            selectedTabNav = 0
+          },
+          onOpenPdfModal = { pdfUrl, title ->
+            iframeModalPdfTitle = title
+            iframeModalPdfUrl = pdfUrl
+            showIframePdfModal = true
+          }
+        )
+      } else if (effectiveScreen == "OL_SPECIAL_FEATURES") {
         // 🌟 FEATURE: O/L SPECIAL MASTER INTERACTIVE TOOLS SUITE (All Subjects)
         OlSpecialMasterFeaturesHubScreen(
           initialSection = activeSpecialFeatureSection,
@@ -1426,9 +1524,20 @@ fun StudentPortalApp() {
             iframeModalPdfTitle = title
             iframeModalPdfUrl = url
             showIframePdfModal = true
+          },
+          onOpenTools100 = {
+            currentScreen = "OL_SUBJECT_TOOLS"
           }
         )
-      } else if (currentScreen == "GRADE_10_TERM_TEST_PORTAL") {
+      } else if (effectiveScreen == "OL_SUBJECT_TOOLS") {
+        // 🛠️ FEATURE: 100 Tools Per Subject (10x10 Group System)
+        OlSubjectToolsScreen(
+          initialSubject = selectedSubjectItem?.nameSinhala ?: "විද්‍යාව",
+          onBack = {
+            currentScreen = "OL_SPECIAL_FEATURES"
+          }
+        )
+      } else if (effectiveScreen == "GRADE_10_TERM_TEST_PORTAL") {
         // 🛡️ FEATURE: 10 වසර වාර විභාග ප්‍රශ්න පත්‍ර (GovDoc.lk & e-Thaksalawa - 100% DRM Protected)
         Grade10SecureTermTestPortalScreen(
           initialSource = grade10PortalInitialSource,
@@ -1439,7 +1548,7 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "GRADE_11_TERM_TEST_PORTAL") {
+      } else if (effectiveScreen == "GRADE_11_TERM_TEST_PORTAL") {
         // 🛡️ FEATURE: 11 වසර වාර විභාග ප්‍රශ්න පත්‍ර (GovDoc.lk & e-Thaksalawa - 100% DRM Protected)
         Grade11SecureTermTestPortalScreen(
           initialSource = grade11PortalInitialSource,
@@ -1451,35 +1560,35 @@ fun StudentPortalApp() {
             currentScreen = if (selectedSubjectItem != null) "CONTENT" else "SUBJECTS"
           }
         )
-      } else if (currentScreen == "FORMULA_SOLVER") {
+      } else if (effectiveScreen == "FORMULA_SOLVER") {
         // 🧮 FEATURE 2: STEP-BY-STEP MATH & PHYSICS FORMULA SOLVER
         FormulaSolverScreen(
           onBack = {
             currentScreen = if (selectedSubjectItem != null) "CONTENT" else "HOME"
           }
         )
-      } else if (currentScreen == "TRILINGUAL_GLOSSARY") {
+      } else if (effectiveScreen == "TRILINGUAL_GLOSSARY") {
         // 📖 FEATURE 5: TRI-LINGUAL GLOSSARY (Science, Maths, ICT, Commerce)
         TriLingualGlossaryScreen(
           onBack = {
             currentScreen = if (selectedSubjectItem != null) "CONTENT" else "HOME"
           }
         )
-      } else if (currentScreen == "TIMED_PAST_PAPER_SIMULATOR") {
+      } else if (effectiveScreen == "TIMED_PAST_PAPER_SIMULATOR") {
         // ⏱️ FEATURE 6: TIMED PAST PAPER SIMULATOR
         TimedPastPaperSimulatorScreen(
           onBack = {
             currentScreen = if (selectedSubjectItem != null) "CONTENT" else "HOME"
           }
         )
-      } else if (currentScreen == "OFFLINE_NOTES_VAULT") {
+      } else if (effectiveScreen == "OFFLINE_NOTES_VAULT") {
         // 💾 FEATURE 7: OFFLINE VAULT & STUDY NOTES
         OfflineNotesVaultScreen(
           onBack = {
             currentScreen = if (selectedSubjectItem != null) "CONTENT" else "HOME"
           }
         )
-      } else if (currentScreen == "INTERACTIVE_QA_HUB") {
+      } else if (effectiveScreen == "INTERACTIVE_QA_HUB") {
         // 🎯 INTERACTIVE Q&A MASTER HUB (6 Q&A Modes)
         InteractiveQaMasterHubScreen(
           onBack = {
@@ -1487,7 +1596,7 @@ fun StudentPortalApp() {
           },
           initialTab = selectedQaHubTab
         )
-      } else if (currentScreen == "VOICE_DOUBT_SOLVER") {
+      } else if (effectiveScreen == "VOICE_DOUBT_SOLVER") {
         // 🎙️ FEATURE: AI VOICE DOUBT SOLVER & STEP-BY-STEP EXPLAINER
         VoiceDoubtSolverScreen(
           initialGrade = selectedGrade,
@@ -1496,7 +1605,7 @@ fun StudentPortalApp() {
             selectedTabNav = 0
           }
         )
-      } else if (currentScreen == "ENGLISH_VOICE_DOUBT_SOLVER") {
+      } else if (effectiveScreen == "ENGLISH_VOICE_DOUBT_SOLVER") {
         // 🇬🇧 DEDICATED ENGLISH AI STUDENT DOUBT VOICE ASSISTANT
         EnglishVoiceDoubtAssistantScreen(
           onBack = {
@@ -1532,6 +1641,9 @@ fun StudentPortalApp() {
             onAuthClick = { showAuthRequiredDialog = true },
             onNotificationClick = {
               showNotificationCenterDialog = true
+            },
+            onAdminDashboardClick = {
+              showAdminDashboardMasterDialog = true
             }
           )
 
@@ -1593,11 +1705,13 @@ fun StudentPortalApp() {
           Spacer(modifier = Modifier.height(6.dp))
 
           // STEP 1: HOME SCREEN (Grades Grid/List in Descending Order: 11 to 06)
-          if (currentScreen == "HOME") {
+          if (effectiveScreen == "HOME") {
             GradesHomeScreen(
               onGradeSelected = { grade ->
-                selectedGrade = grade
-                currentScreen = "SUBJECTS"
+                requireFeatureAccess {
+                  selectedGrade = grade
+                  currentScreen = "SUBJECTS"
+                }
               },
               onOpenAddModal = {
                 contentTypeToAdd = "SUBJECT"
@@ -1669,43 +1783,67 @@ fun StudentPortalApp() {
                 }
               },
               onOpenEyeCare = {
-                currentScreen = "EYE_CARE_HUB"
+                requireFeatureAccess {
+                  currentScreen = "EYE_CARE_HUB"
+                }
               },
               onOpenHistoryMapsAutoCheck = {
-                currentScreen = "HISTORY_MAPS_AUTO_CHECKER"
+                requireFeatureAccess {
+                  currentScreen = "HISTORY_MAPS_AUTO_CHECKER"
+                }
               },
               onOpenScience500AutoCheck = {
-                currentScreen = "SCIENCE_500_AUTO_CHECKER"
+                requireFeatureAccess {
+                  currentScreen = "SCIENCE_500_AUTO_CHECKER"
+                }
               },
               onOpenEnglishShortNotesAutoCheck = {
-                currentScreen = "ENGLISH_SHORT_NOTES_AUTO_CHECKER"
+                requireFeatureAccess {
+                  currentScreen = "ENGLISH_SHORT_NOTES_AUTO_CHECKER"
+                }
               },
               onOpenGeographyAutoCheck = {
-                currentScreen = "GEOGRAPHY_AUTO_CHECKER"
+                requireFeatureAccess {
+                  currentScreen = "GEOGRAPHY_AUTO_CHECKER"
+                }
               },
               onOpenSpecialMasterFeatures = { section ->
-                activeSpecialFeatureSection = section
-                currentScreen = "OL_SPECIAL_FEATURES"
+                requireFeatureAccess {
+                  activeSpecialFeatureSection = section
+                  currentScreen = "OL_SPECIAL_FEATURES"
+                }
               },
               onOpenGrade10TermTestPortal = { source ->
-                grade10PortalInitialSource = source
-                currentScreen = "GRADE_10_TERM_TEST_PORTAL"
+                requireFeatureAccess {
+                  grade10PortalInitialSource = source
+                  currentScreen = "GRADE_10_TERM_TEST_PORTAL"
+                }
               },
               onOpenFormulaSolver = {
-                currentScreen = "FORMULA_SOLVER"
+                requireFeatureAccess {
+                  currentScreen = "FORMULA_SOLVER"
+                }
               },
               onOpenTriLingualGlossary = {
-                currentScreen = "TRILINGUAL_GLOSSARY"
+                requireFeatureAccess {
+                  currentScreen = "TRILINGUAL_GLOSSARY"
+                }
               },
               onOpenTimedPastPaperSimulator = {
-                currentScreen = "TIMED_PAST_PAPER_SIMULATOR"
+                requireFeatureAccess {
+                  currentScreen = "TIMED_PAST_PAPER_SIMULATOR"
+                }
               },
               onOpenOfflineNotesVault = {
-                currentScreen = "OFFLINE_NOTES_VAULT"
+                requireFeatureAccess {
+                  currentScreen = "OFFLINE_NOTES_VAULT"
+                }
               },
               onOpenInteractiveQaHub = { tab ->
-                selectedQaHubTab = tab
-                currentScreen = "INTERACTIVE_QA_HUB"
+                requireFeatureAccess {
+                  selectedQaHubTab = tab
+                  currentScreen = "INTERACTIVE_QA_HUB"
+                }
               },
               onOpenVoiceDoubtSolver = {
                 requireFeatureAccess {
@@ -1725,14 +1863,16 @@ fun StudentPortalApp() {
           }
 
           // STEP 2: SUBJECTS SCREEN (List of Subjects for Selected Grade with Background Photos)
-          else if (currentScreen == "SUBJECTS") {
+          else if (effectiveScreen == "SUBJECTS") {
             GradeSubjectsScreen(
               grade = selectedGrade,
               subjectsList = currentSubjects,
               isAdmin = isAdminAuthenticated,
               onSubjectSelected = { subject ->
-                selectedSubjectItem = subject
-                currentScreen = "CONTENT"
+                requireFeatureAccess {
+                  selectedSubjectItem = subject
+                  currentScreen = "CONTENT"
+                }
               },
               onBackToGrades = {
                 currentScreen = "HOME"
@@ -1746,20 +1886,24 @@ fun StudentPortalApp() {
                 Toast.makeText(context, "${subject.nameSinhala} විෂය ඉවත් විය", Toast.LENGTH_SHORT).show()
               },
               onOpenGrade10TermTestPortal = { source ->
-                grade10PortalInitialSource = source
-                currentScreen = "GRADE_10_TERM_TEST_PORTAL"
+                requireFeatureAccess {
+                  grade10PortalInitialSource = source
+                  currentScreen = "GRADE_10_TERM_TEST_PORTAL"
+                }
               },
               onOpenGrade11TermTestPortal = { source, subject, term ->
-                grade11PortalInitialSource = source
-                grade11PortalInitialSubject = subject
-                grade11PortalInitialTerm = term
-                currentScreen = "GRADE_11_TERM_TEST_PORTAL"
+                requireFeatureAccess {
+                  grade11PortalInitialSource = source
+                  grade11PortalInitialSubject = subject
+                  grade11PortalInitialTerm = term
+                  currentScreen = "GRADE_11_TERM_TEST_PORTAL"
+                }
               }
             )
           }
 
           // STEP 3: CONTENT SCREEN (5-Section Subject Hub: Short Notes | Papers | Quizzes | Audio Podcasts | AI Smart Assistant)
-          else if (currentScreen == "CONTENT" && selectedSubjectItem != null) {
+          else if (effectiveScreen == "CONTENT" && selectedSubjectItem != null) {
             SubjectContentScreen(
               grade = selectedGrade,
               subject = selectedSubjectItem!!,
@@ -1854,6 +1998,9 @@ fun StudentPortalApp() {
               },
               onOpenGeographyAutoCheck = {
                 currentScreen = "GEOGRAPHY_AUTO_CHECKER"
+              },
+              onOpenMathShortNotesAutoCheck = {
+                currentScreen = "GRADE_10_11_MATH_SHORT_NOTES"
               },
               onOpenSpecialMasterFeatures = { section ->
                 activeSpecialFeatureSection = section
@@ -2340,6 +2487,18 @@ fun StudentPortalApp() {
         )
       }
 
+      // 100% Fullscreen Mandatory VPN Blocker Dialog (Blocks app when VPN is active)
+      if (isVpnDetected) {
+        VpnSecurityBlockDialog(
+          onRetry = {
+            isVpnDetected = AppSecurityManager.isVpnConnected(context)
+            if (!isVpnDetected) {
+              Toast.makeText(context, "✅ VPN ක්‍රියාවිරහිත කර ඇත. ආරක්ෂිත සබඳතාවය තහවුරු විය.", Toast.LENGTH_SHORT).show()
+            }
+          }
+        )
+      }
+
       // Grade Not Approved Alert Modal
       if (showGradeNotApprovedDialog) {
         GradeNotApprovedAlertModal(
@@ -2348,11 +2507,8 @@ fun StudentPortalApp() {
           onDismiss = { showGradeNotApprovedDialog = false },
           onRequestApproval = {
             preselectedGradeForApproval = when (gradeNotApprovedTarget) {
-              "10", "11" -> "10 සහ 11 ශ්‍රේණි (O/L Combo Pack)"
-              "06" -> "06 ශ්‍රේණිය (Grade 6 Single Pack)"
-              "07" -> "07 ශ්‍රේණිය (Grade 7 Single Pack)"
-              "08" -> "08 ශ්‍රේණිය (Grade 8 Single Pack)"
-              "09" -> "09 ශ්‍රේණිය (Grade 9 Single Pack)"
+              "10" -> "10 ශ්‍රේණිය (Grade 10 Single Pack)"
+              "11" -> "11 ශ්‍රේණිය (Grade 11 Single Pack)"
               else -> "10 සහ 11 ශ්‍රේණි (O/L Combo Pack)"
             }
             showPaymentApprovalDialog = true
@@ -2374,6 +2530,14 @@ fun StudentPortalApp() {
             val status = if (receiptUri != null) "Pending Approval (With Slip)" else "Pending Approval (WhatsApp / Direct)"
             val existing = registeredUsers.find { it.usernameOrPhone.trim().equals(phone.trim(), ignoreCase = true) }
             if (existing != null) {
+              if (existing.boundDeviceId != null && existing.boundDeviceId != devId && !isAuthorizedAdminUser(existing.usernameOrPhone)) {
+                Toast.makeText(
+                  context,
+                  "🚫 මෙම ගිණුම (${existing.usernameOrPhone}) දැනටමත් වෙනත් දුරකථනයකට (${existing.boundDeviceName ?: "වෙනත් දුරකථනයකට"}) සම්බන්ධ කර ඇත. එකම ගිණුමෙන් වෙනත් දුරකථනවලින් ලොග් විය නොහැක!",
+                  Toast.LENGTH_LONG
+                ).show()
+                return@UnlimitedAccessPaymentDialog
+              }
               val idx = registeredUsers.indexOf(existing)
               val updated = existing.copy(
                 fullName = name,
@@ -2515,6 +2679,77 @@ fun StudentPortalApp() {
           onOpenStagingDialog = { showStagingManagerDialog = true },
           onAddNewContentClick = { showAddContentDialog = true }
         )
+      }
+
+      // Master Dedicated Admin Dashboard Dialog (Triggered via top-right circle)
+      if (showAdminDashboardMasterDialog && isAdminAuthenticated) {
+        AdminDashboardMasterDialog(
+          registeredUsers = registeredUsers,
+          adminBroadcastMessages = adminBroadcastMessages,
+          stagedContentItems = stagedContentItems,
+          onDismiss = { showAdminDashboardMasterDialog = false },
+          onUsersUpdated = {
+            saveUsersToPreferences(context, registeredUsers.toList())
+            loggedInUser?.let { curr ->
+              val updated = registeredUsers.find { it.id == curr.id || it.usernameOrPhone == curr.usernameOrPhone }
+              if (updated != null) {
+                loggedInUser = updated
+              }
+            }
+          },
+          onLogoutAdmin = {
+            isAdminAuthenticated = false
+            loggedInUser = null
+            setAdminSessionActive(context, false)
+            saveLoggedInUserPhone(context, null)
+            showAdminDashboardMasterDialog = false
+          },
+          onPreviewReceipt = { uriStr ->
+            previewReceiptImageUrl = uriStr
+          },
+          onSendBroadcast = { title, message, priority, targetGrade ->
+            val newMsg = AdminBroadcastMessage(
+              id = System.currentTimeMillis().toString(),
+              title = title,
+              message = message,
+              priority = priority,
+              targetGrade = targetGrade,
+              formattedDate = "අද දින (Live)",
+              isRead = false
+            )
+            AdminBroadcastManager.addMessage(context, newMsg, adminBroadcastMessages)
+            Toast.makeText(context, "නිවේදනය සාර්ථකව විකාශනය විය!", Toast.LENGTH_SHORT).show()
+          },
+          onReleaseAllStaged = {
+            AdminStagingManager.releaseAllStagedToLive(
+              context = context,
+              stagedList = stagedContentItems,
+              liveNotesMap = liveNotesMap,
+              livePapersMap = livePapersMap,
+              liveVideosMap = liveVideosMap,
+              adminBroadcastMessages = adminBroadcastMessages,
+              onComplete = { count ->
+                Toast.makeText(context, "අන්තර්ගතයන් $count ක් සාර්ථකව Live විය!", Toast.LENGTH_SHORT).show()
+              }
+            )
+          },
+          onOpenStagingDialog = { showStagingManagerDialog = true },
+          onAddNewContentClick = { showAddContentDialog = true }
+        )
+      }
+
+      // Persistent Top-Right Circular Admin Badge on Non-Home screens (Strictly visible ONLY to Admin)
+      if (isAdminAuthenticated && currentScreen != "HOME") {
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 10.dp, end = 12.dp),
+          contentAlignment = Alignment.TopEnd
+        ) {
+          AdminTopCornerCircleBadge(
+            onClick = { showAdminDashboardMasterDialog = true }
+          )
+        }
       }
 
       // Admin Staging Review & Management Dialog (One-Click Live Release)
@@ -2660,6 +2895,8 @@ fun StudentPortalApp() {
 
       // Full-Screen Clean PDF Viewer (DRM Protected with Eye-Care & Night Study Mode)
       if (showIframePdfModal) {
+        var isFullScreenReadingMode by remember { mutableStateOf(false) }
+
         Dialog(
           onDismissRequest = { showIframePdfModal = false },
           properties = DialogProperties(
@@ -2678,23 +2915,24 @@ fun StudentPortalApp() {
             }
           ) {
             Column(modifier = Modifier.fillMaxSize()) {
-              // Minimal, sleek Top Navigation Bar
-              Surface(
-                color = when (activeEyeCareMode) {
-                  EyeCareThemeMode.LIGHT -> Color(0xFF1E293B)
-                  EyeCareThemeMode.SEPIA -> Color(0xFF451A03)
-                  EyeCareThemeMode.DARK -> Color(0xFF020617)
-                  EyeCareThemeMode.BLUE_LIGHT_SHIELD -> Color(0xFF0B132B)
-                },
-                modifier = Modifier.fillMaxWidth()
-              ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                  Row(
-                    modifier = Modifier
-                      .fillMaxWidth()
-                      .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                  ) {
+              // Minimal, sleek Top Navigation Bar (Hidden in Full Screen Mode)
+              AnimatedVisibility(visible = !isFullScreenReadingMode) {
+                Surface(
+                  color = when (activeEyeCareMode) {
+                    EyeCareThemeMode.LIGHT -> Color(0xFF1E293B)
+                    EyeCareThemeMode.SEPIA -> Color(0xFF451A03)
+                    EyeCareThemeMode.DARK -> Color(0xFF020617)
+                    EyeCareThemeMode.BLUE_LIGHT_SHIELD -> Color(0xFF0B132B)
+                  },
+                  modifier = Modifier.fillMaxWidth()
+                ) {
+                  Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                      modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
                     IconButton(
                       onClick = { showIframePdfModal = false },
                       modifier = Modifier.size(38.dp)
@@ -2807,29 +3045,68 @@ fun StudentPortalApp() {
                       }
                     }
 
-                    // Dedicated History Maps Auto-Check action button in PDF top bar
-                    Surface(
-                      onClick = {
-                        showIframePdfModal = false
-                        currentScreen = "HISTORY_MAPS_AUTO_CHECKER"
-                      },
-                      shape = RoundedCornerShape(8.dp),
-                      color = Color(0xFF0284C7),
-                      modifier = Modifier.padding(end = 4.dp).testTag("pdf_history_maps_top_btn")
-                    ) {
-                      Row(
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    // Dedicated Subject-specific Auto-Check action button in PDF top bar
+                    if (iframeModalPdfTitle.contains("ඉතිහාස") || iframeModalPdfTitle.contains("History") || iframeModalPdfTitle.contains("සිතියම්")) {
+                      Surface(
+                        onClick = {
+                          showIframePdfModal = false
+                          currentScreen = "HISTORY_MAPS_AUTO_CHECKER"
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF0284C7),
+                        modifier = Modifier.padding(end = 4.dp).testTag("pdf_history_maps_top_btn")
                       ) {
-                        Text("🗺️", fontSize = 11.sp)
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                          text = "සිතියම් Check",
-                          color = Color.White,
-                          fontSize = 10.sp,
-                          fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                          modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                          verticalAlignment = Alignment.CenterVertically
+                        ) {
+                          Text("🗺️", fontSize = 11.sp)
+                          Spacer(modifier = Modifier.width(2.dp))
+                          Text(
+                            text = "සිතියම් Check",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                          )
+                        }
                       }
+                    }
+
+                    if (iframeModalPdfTitle.contains("ගණිත") || iframeModalPdfTitle.contains("Sandu") || iframeModalPdfTitle.contains("Math")) {
+                      Surface(
+                        onClick = {
+                          showIframePdfModal = false
+                          currentScreen = "GRADE_10_11_MATH_SHORT_NOTES"
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF10B981),
+                        modifier = Modifier.padding(end = 4.dp).testTag("pdf_math_sandu_top_btn")
+                      ) {
+                        Row(
+                          modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                          verticalAlignment = Alignment.CenterVertically
+                        ) {
+                          Text("📐", fontSize = 11.sp)
+                          Spacer(modifier = Modifier.width(2.dp))
+                          Text(
+                            text = "Sandu Theory",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                          )
+                        }
+                      }
+                    }
+
+                    IconButton(
+                      onClick = { isFullScreenReadingMode = !isFullScreenReadingMode },
+                      modifier = Modifier.size(34.dp).testTag("pdf_fullscreen_btn")
+                    ) {
+                      Text(
+                        text = "⛶",
+                        fontSize = 18.sp,
+                        color = Color(0xFF38BDF8)
+                      )
                     }
 
                     IconButton(
@@ -2866,7 +3143,7 @@ fun StudentPortalApp() {
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                          text = "🔒 DRM ආරක්ෂිතයි • Screenshot/Copy තහනම්",
+                          text = "🔒 DRM ආරක්ෂිතයි • පිටුවක් ටච් කර ෆුල් ස්ක්‍රීන් කරන්න",
                           color = Color(0xFF94A3B8),
                           fontSize = 9.sp,
                           fontWeight = FontWeight.Medium
@@ -2885,6 +3162,7 @@ fun StudentPortalApp() {
                   }
                 }
               }
+            }
 
               // Full Screen Clean PDF WebView with Pinch-to-Zoom, Eye-Care CSS Filters and Anti-Copy Protection
               Box(
@@ -2907,6 +3185,18 @@ fun StudentPortalApp() {
                       isHapticFeedbackEnabled = false
                       setOnLongClickListener { true }
 
+                      addJavascriptInterface(
+                        object {
+                          @android.webkit.JavascriptInterface
+                          fun onPageTapped() {
+                            (ctx as? Activity)?.runOnUiThread {
+                              isFullScreenReadingMode = !isFullScreenReadingMode
+                            }
+                          }
+                        },
+                        "AndroidPdfBridge"
+                      )
+
                       webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, url: String?) {
                           super.onPageFinished(view, url)
@@ -2922,6 +3212,22 @@ fun StudentPortalApp() {
                                 style.appendChild(document.createTextNode(css));
                                 head.appendChild(style);
                               }
+                              var meta = document.querySelector('meta[name="viewport"]');
+                              if (!meta) {
+                                meta = document.createElement('meta');
+                                meta.name = 'viewport';
+                                document.head.appendChild(meta);
+                              }
+                              meta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=8.0, user-scalable=yes');
+                              document.documentElement.style.touchAction = 'manipulation';
+                              document.body.style.touchAction = 'manipulation';
+
+                              document.addEventListener('click', function(e) {
+                                if (window.AndroidPdfBridge) {
+                                  window.AndroidPdfBridge.onPageTapped();
+                                }
+                              }, true);
+
                               document.addEventListener('contextmenu', function(e) { e.preventDefault(); e.stopPropagation(); return false; }, true);
                               document.addEventListener('copy', function(e) { e.preventDefault(); e.stopPropagation(); return false; }, true);
                               document.addEventListener('cut', function(e) { e.preventDefault(); e.stopPropagation(); return false; }, true);
@@ -2931,6 +3237,15 @@ fun StudentPortalApp() {
                           """.trimIndent() + "\n" + getEyeCareWebViewJs(activeEyeCareMode, activeFontScale)
 
                           view?.evaluateJavascript(drmAndEyeCareJs, null)
+                        }
+
+                        override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                          val destination = request?.url?.toString() ?: ""
+                          if (destination.contains("drive.google.com/start") || destination.contains("google.com/drive/start")) {
+                            view?.loadUrl(formatToGoogleDriveEmbedUrl(iframeModalPdfUrl))
+                            return true
+                          }
+                          return false
                         }
                       }
                       settings.javaScriptEnabled = true
@@ -2942,12 +3257,13 @@ fun StudentPortalApp() {
                       settings.loadWithOverviewMode = true
                       settings.allowFileAccess = true
                       settings.allowContentAccess = true
-                      loadUrl(iframeModalPdfUrl)
+                      loadUrl(formatToGoogleDriveEmbedUrl(iframeModalPdfUrl))
                     }
                   },
                   update = { webView ->
-                    if (webView.url != iframeModalPdfUrl) {
-                      webView.loadUrl(iframeModalPdfUrl)
+                    val targetEmbedUrl = formatToGoogleDriveEmbedUrl(iframeModalPdfUrl)
+                    if (webView.url != targetEmbedUrl && !webView.url.orEmpty().startsWith(targetEmbedUrl.substringBefore("#"))) {
+                      webView.loadUrl(targetEmbedUrl)
                     }
                     // Dynamically re-apply Eye-Care theme & zoom whenever mode/scale changes
                     webView.evaluateJavascript(getEyeCareWebViewJs(activeEyeCareMode, activeFontScale), null)
@@ -2959,18 +3275,52 @@ fun StudentPortalApp() {
                   modifier = Modifier.fillMaxSize()
                 )
 
-                if (AppSecurityManager.isDynamicWatermarkEnabled(context)) {
+                // Unobtrusive Fullscreen Exit Button when in fullscreen mode
+                if (isFullScreenReadingMode) {
+                  Surface(
+                    onClick = { isFullScreenReadingMode = false },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.Black.copy(alpha = 0.70f),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.7f)),
+                    modifier = Modifier
+                      .align(Alignment.TopEnd)
+                      .padding(12.dp)
+                      .statusBarsPadding()
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Exit Fullscreen",
+                        tint = Color(0xFF38BDF8),
+                        modifier = Modifier.size(16.dp)
+                      )
+                      Spacer(modifier = Modifier.width(4.dp))
+                      Text(
+                        text = "සාමාන්‍ය තිරය",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                      )
+                    }
+                  }
+                }
+
+                if (!isFullScreenReadingMode && AppSecurityManager.isDynamicWatermarkEnabled(context)) {
                   SecurityWatermarkOverlay(
                     identifier = loggedInUser?.let { "${it.fullName} • ${it.usernameOrPhone}" } ?: "O/L ශිෂ්‍ය ආරක්ෂිත කියවීම් මාදිලිය"
                   )
                 }
               }
 
-              // Floating Eye-Care Quick Bar at bottom of PDF viewer
-              Surface(
-                color = Color(0xFF0F172A).copy(alpha = 0.96f),
-                modifier = Modifier.fillMaxWidth()
-              ) {
+              // Floating Eye-Care Quick Bar at bottom of PDF viewer (Hidden in Full Screen Mode)
+              AnimatedVisibility(visible = !isFullScreenReadingMode) {
+                Surface(
+                  color = Color(0xFF0F172A).copy(alpha = 0.96f),
+                  modifier = Modifier.fillMaxWidth()
+                ) {
                 Row(
                   modifier = Modifier
                     .fillMaxWidth()
@@ -3061,6 +3411,7 @@ fun StudentPortalApp() {
                     }
                   }
                 }
+              }
               }
             }
           }
@@ -4184,7 +4535,8 @@ fun TopHeaderSection(
   onEyeCareClick: () -> Unit = {},
   onSecurityClick: () -> Unit = {},
   onAuthClick: () -> Unit,
-  onNotificationClick: () -> Unit
+  onNotificationClick: () -> Unit,
+  onAdminDashboardClick: () -> Unit = {}
 ) {
   Row(
     modifier = Modifier
@@ -4367,6 +4719,14 @@ fun TopHeaderSection(
         onClick = onNotificationClick,
         modifier = Modifier.testTag("notification_button")
       )
+
+      // DEDICATED ADMIN SMALL CIRCLE ON THE TOP RIGHT (Strictly shown ONLY when isAdmin == true)
+      if (isAdmin) {
+        Spacer(modifier = Modifier.width(6.dp))
+        AdminTopCornerCircleBadge(
+          onClick = onAdminDashboardClick
+        )
+      }
     }
   }
 }
@@ -4375,7 +4735,7 @@ fun TopHeaderSection(
 fun SecuritySubscriptionBanner(
   isApproved: Boolean = false,
   isFeatureTrialActive: Boolean = true,
-  remainingTrialHours: Int = 24,
+  remainingTrialHours: Int = 12,
   onClick: () -> Unit = {}
 ) {
   Card(
@@ -4419,7 +4779,7 @@ fun SecuritySubscriptionBanner(
 
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = if (isApproved) "UNLIMITED ACCESS ACTIVATED" else if (isFeatureTrialActive) "විශේෂාංග නොමිලේ පෙරදසුන (දින 1)" else "UNLIMITED ACCESS ලබාගන්න",
+            text = if (isApproved) "UNLIMITED ACCESS ACTIVATED" else if (isFeatureTrialActive) "පැය 12 නොමිලේ අත්හදා බැලීම (12h Free Trial)" else "🔒 නොමිලේ කාලය අවසන් • ඇඩ්මින් අනුමැතිය අවශ්‍යයි",
             fontSize = 11.sp,
             color = if (isApproved) Color(0xFF137333) else if (isFeatureTrialActive) Color(0xFF065F46) else Color(0xFFE65100),
             fontWeight = FontWeight.Bold,
@@ -4430,9 +4790,9 @@ fun SecuritySubscriptionBanner(
             text = if (isApproved) {
               "සියලු පාඩම් අනුමතයි • Official Access"
             } else if (isFeatureTrialActive) {
-              "නොමිලේ පෙරදසුන (${remainingTrialHours}h ඉතිරියි) • දෙවන දින අනුමැතිය අවශ්‍යයි"
+              "100% නොමිලේ (${remainingTrialHours}h ඉතිරියි) • පැය 12 පසු ඇඩ්මින් අනුමැතිය අවශ්‍යයි"
             } else {
-              "වාර්ෂික අනුමැතියෙන් පසු සියල්ල Unlimited!"
+              "විශේෂාංග හා අනු කොටස් පරිශීලනයට ඇඩ්මින් අනුමැතිය (Admin Approval) ලබාගන්න"
             },
             color = if (isApproved) Color(0xFF1B5E20) else if (isFeatureTrialActive) Color(0xFF047857) else Color(0xFFB45309),
             fontSize = 10.sp,
@@ -4576,19 +4936,50 @@ fun getSubjectsForGrade(grade: String): List<SubjectItem> {
       SubjectItem("sub_10_sin", "Sinhala Language", "සිංහල භාෂාව හා සාහිත්‍යය", 16, Color(0xFF6A1B9A), Icons.Default.Book),
       SubjectItem("sub_10_eng", "English Language", "ඉංග්‍රීසි භාෂාව", 14, Color(0xFF00838F), Icons.Default.MenuBook)
     )
-    "09", "08", "07", "06" -> listOf(
+    "09", "9" -> listOf(
+      SubjectItem("sub_09_sci", "Science", "විද්‍යාව", 16, Color(0xFF1B5E20), Icons.Default.AutoAwesome),
+      SubjectItem("sub_09_math", "Mathematics", "ගණිතය", 20, Color(0xFF0D47A1), Icons.Default.MenuBook),
+      SubjectItem("sub_09_sin", "Sinhala Language", "සිංහල භාෂාව හා සාහිත්‍යය", 16, Color(0xFF6A1B9A), Icons.Default.Book),
+      SubjectItem("sub_09_eng", "English Language", "ඉංග්‍රීසි භාෂාව", 14, Color(0xFF00838F), Icons.Default.MenuBook),
+      SubjectItem("sub_09_hist", "History", "ඉතිහාසය", 12, Color(0xFF8D6E63), Icons.Default.Book),
+      SubjectItem("sub_09_bud", "Buddhism", "බුද්ධ ධර්මය", 12, Color(0xFFE65100), Icons.Default.AutoAwesome),
+      SubjectItem("sub_09_geo", "Geography", "භූගෝල විද්‍යාව", 10, Color(0xFF00796B), Icons.Default.Description),
+      SubjectItem("sub_09_civic", "Civic Education", "පුරවැසි අධ්‍යාපනය", 10, Color(0xFF00695C), Icons.Default.Description),
+      SubjectItem("sub_09_comm", "Commerce & Accounting", "ව්‍යාපාර අධ්‍යයනය හා ගිණුම්කරණය", 12, Color(0xFF2E7D32), Icons.Default.MenuBook),
+      SubjectItem("sub_09_ict", "Information Technology", "තොරතුරු තාක්ෂණය", 12, Color(0xFF283593), Icons.Default.AutoAwesome),
+      SubjectItem("sub_09_pts", "Practical & Tech Skills", "ප්‍රායෝගික හා තාක්ෂණික කුසලතා", 10, Color(0xFF33691E), Icons.Default.AutoAwesome),
+      SubjectItem("sub_09_health", "Health & Physical Ed", "සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය", 10, Color(0xFFC2185B), Icons.Default.CheckCircle),
+      SubjectItem("sub_09_music", "Oriental Music", "පෙරදිග සංගීතය", 10, Color(0xFF7B1FA2), Icons.Default.AutoAwesome),
+      SubjectItem("sub_09_dance", "Dancing", "නර්තනය", 10, Color(0xFFC2185B), Icons.Default.AutoAwesome),
+      SubjectItem("sub_09_art", "Art", "චිත්‍ර", 10, Color(0xFFF57C00), Icons.Default.Book)
+    )
+    "08", "8", "07", "7", "06", "6" -> {
+      val g = if (grade.length == 1) "0$grade" else grade
+      listOf(
+        SubjectItem("sub_${g}_sci", "Science", "විද්‍යාව", 16, Color(0xFF1B5E20), Icons.Default.AutoAwesome),
+        SubjectItem("sub_${g}_math", "Mathematics", "ගණිතය", 20, Color(0xFF0D47A1), Icons.Default.MenuBook),
+        SubjectItem("sub_${g}_sin", "Sinhala Language", "සිංහල භාෂාව හා සාහිත්‍යය", 16, Color(0xFF6A1B9A), Icons.Default.Book),
+        SubjectItem("sub_${g}_eng", "English Language", "ඉංග්‍රීසි භාෂාව", 14, Color(0xFF00838F), Icons.Default.MenuBook),
+        SubjectItem("sub_${g}_hist", "History", "ඉතිහාසය", 12, Color(0xFF8D6E63), Icons.Default.Book),
+        SubjectItem("sub_${g}_bud", "Buddhism", "බුද්ධ ධර්මය", 12, Color(0xFFE65100), Icons.Default.AutoAwesome),
+        SubjectItem("sub_${g}_geo", "Geography", "භූගෝල විද්‍යාව", 10, Color(0xFF00796B), Icons.Default.Description),
+        SubjectItem("sub_${g}_civic", "Civic Education", "පුරවැසි අධ්‍යාපනය", 10, Color(0xFF00695C), Icons.Default.Description),
+        SubjectItem("sub_${g}_pts", "Practical & Tech Skills", "ප්‍රායෝගික හා තාක්ෂණික කුසලතා", 10, Color(0xFF33691E), Icons.Default.AutoAwesome),
+        SubjectItem("sub_${g}_ict", "Information Technology", "තොරතුරු තාක්ෂණය", 10, Color(0xFF283593), Icons.Default.AutoAwesome),
+        SubjectItem("sub_${g}_health", "Health & Physical Ed", "සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය", 8, Color(0xFFC2185B), Icons.Default.CheckCircle),
+        SubjectItem("sub_${g}_music", "Oriental Music", "පෙරදිග සංගීතය", 8, Color(0xFF7B1FA2), Icons.Default.AutoAwesome),
+        SubjectItem("sub_${g}_dance", "Dancing", "නර්තනය", 8, Color(0xFFC2185B), Icons.Default.AutoAwesome),
+        SubjectItem("sub_${g}_art", "Art", "චිත්‍ර", 8, Color(0xFFF57C00), Icons.Default.Book)
+      )
+    }
+    else -> listOf(
       SubjectItem("sub_${grade}_sci", "Science", "විද්‍යාව", 16, Color(0xFF1B5E20), Icons.Default.AutoAwesome),
       SubjectItem("sub_${grade}_math", "Mathematics", "ගණිතය", 20, Color(0xFF0D47A1), Icons.Default.MenuBook),
-      SubjectItem("sub_${grade}_hist", "History", "ඉතිහාසය", 10, Color(0xFF8D6E63), Icons.Default.Book),
-      SubjectItem("sub_${grade}_bud", "Buddhism", "බුද්ධ ධර්මය", 12, Color(0xFFE65100), Icons.Default.AutoAwesome),
       SubjectItem("sub_${grade}_sin", "Sinhala Language", "සිංහල භාෂාව හා සාහිත්‍යය", 14, Color(0xFF6A1B9A), Icons.Default.Book),
       SubjectItem("sub_${grade}_eng", "English Language", "ඉංග්‍රීසි භාෂාව", 12, Color(0xFF00838F), Icons.Default.MenuBook),
-      SubjectItem("sub_${grade}_geo", "Geography", "භූගෝල විද්‍යාව", 10, Color(0xFFE65100), Icons.Default.Book),
-      SubjectItem("sub_${grade}_civic", "Civic Education", "පුරවැසි අධ්‍යාපනය", 8, Color(0xFF00695C), Icons.Default.Description),
-      SubjectItem("sub_${grade}_pts", "Practical & Tech Skills", "ප්‍රායෝගික හා තාක්ෂණික කුසලතා", 10, Color(0xFF33691E), Icons.Default.AutoAwesome),
-      SubjectItem("sub_${grade}_health", "Health & Physical Ed", "සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය", 8, Color(0xFFC2185B), Icons.Default.CheckCircle)
+      SubjectItem("sub_${grade}_hist", "History", "ඉතිහාසය", 10, Color(0xFF8D6E63), Icons.Default.Book),
+      SubjectItem("sub_${grade}_bud", "Buddhism", "බුද්ධ ධර්මය", 12, Color(0xFFE65100), Icons.Default.AutoAwesome)
     )
-    else -> emptyList()
   }
 }
 
@@ -4615,6 +5006,19 @@ fun getNotesForGrade(grade: String): List<ShortNoteItem> {
     isPopular = true,
     pdfUri = "https://drive.google.com/file/d/1Ee0O1o9n9whNKs8A9hUB5Ndb5li52n8b/preview",
     fileName = "Commerce_Accounting_Short_Notes_Gr10_11.pdf",
+    isPasswordProtected = false,
+    password = null
+  )
+
+  val mathSanduTheoryMasterNotes = ShortNoteItem(
+    id = "math_sandu_theory_notes_gr10_11",
+    subject = "ගණිතය",
+    title = "10 සහ 11 ශ්‍රේණි - ගණිතය සියලුම සිද්ධාන්ත හා කෙටි සටහන් (Sandu Theory ඒකක 42 & විසඳුම්)",
+    topicSinhala = "10 හා 11 ශ්‍රේණි ගණිතය කෙටි සටහන් (Sandu Theory ඒකක 42)",
+    readTime = "🔒 ආරක්ෂිත PDF • Google Drive • පිටු 100",
+    isPopular = true,
+    pdfUri = "https://drive.google.com/file/d/1V3y65z_15X6zjruQ_I11WhG4EOfDHGm-/preview",
+    fileName = "Sandu_Theory_Maths_Gr10_11_Units_1_to_42.pdf",
     isPasswordProtected = false,
     password = null
   )
@@ -4658,31 +5062,6 @@ fun getNotesForGrade(grade: String): List<ShortNoteItem> {
     password = null
   )
 
-  val scienceChemistryNoteGr10_11 = ShortNoteItem(
-    id = "science_chem_note_gr10_11",
-    subject = "විද්‍යාව",
-    title = "10 සහ 11 ශ්‍රේණි - විද්‍යාව රසායන විද්‍යාව (Chemistry) විශේෂ කෙටි සටහන්",
-    topicSinhala = "10 සහ 11 ශ්‍රේණි රසායන විද්‍යාව",
-    readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
-    isPopular = true,
-    pdfUri = "https://drive.google.com/file/d/17TcFs1wECaHB4C3LMdC8mO2YDKrtrEOI/preview",
-    fileName = "Science_Chemistry_Short_Notes_Gr10_11.pdf",
-    isPasswordProtected = false,
-    password = null
-  )
-
-  val sciencePhysicsNoteGr10_11 = ShortNoteItem(
-    id = "science_phy_note_gr10_11",
-    subject = "විද්‍යාව",
-    title = "10 සහ 11 ශ්‍රේණි - විද්‍යාව භෞතික විද්‍යාව (Physics) සූත්‍ර හා සංකල්ප",
-    topicSinhala = "10 සහ 11 ශ්‍රේණි භෞතික විද්‍යාව",
-    readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
-    isPopular = true,
-    pdfUri = "https://drive.google.com/file/d/17TcFs1wECaHB4C3LMdC8mO2YDKrtrEOI/preview",
-    fileName = "Science_Physics_Short_Notes_Gr10_11.pdf",
-    isPasswordProtected = false,
-    password = null
-  )
 
   val englishWritingNoteGr10_11 = ShortNoteItem(
     id = "english_writing_note_gr10_11",
@@ -5074,8 +5453,8 @@ fun getNotesForGrade(grade: String): List<ShortNoteItem> {
     return listOf(
       sinhalaGrammarNote, sinhalaLitNoteGr10_11, sinhalaWritingNoteGr10_11,
       englishShortNoteAllGrades, englishWritingNoteGr10_11, englishShortNoteGr09_11,
-      mathGeometryNote, mathAlgebraNoteGr10_11, mathStatsFormulaNoteGr10_11, mathNoteGr11Custom,
-      scienceNoteGr11, scienceChemistryNoteGr10_11, sciencePhysicsNoteGr10_11, scienceNoteGr11Custom, science500QuestionsNoteGr11,
+      mathSanduTheoryMasterNotes, mathGeometryNote, mathNoteGr11Custom,
+      scienceNoteGr11, scienceNoteGr11Custom, science500QuestionsNoteGr11,
       historyNote, historyMapsNoteAllGrades, historyMapsFillBlanksGr09_11, historyTablesNoteGr10_11, historyNoteGr11Custom,
       buddhismNote, buddhismNoteGr11Custom, geoNoteGr11, geoNoteGr11Custom, civicNoteGr11, civicNoteGr11Custom, commerceNote, ictNote,
       agriNoteGr11, healthNote, danceNote, danceNoteGr11Custom, musicNoteGr10_11_1, musicNoteGr10_11_2, musicNoteGr11Custom,
@@ -5289,177 +5668,382 @@ fun getNotesForGrade(grade: String): List<ShortNoteItem> {
     return listOf(
       sinhalaGrammarNote, sinhalaLitNoteGr10_11, sinhalaWritingNoteGr10_11, sinhalaNoteGr10Custom,
       englishShortNoteAllGrades, englishWritingNoteGr10_11, englishShortNoteGr09_11,
-      mathGeometryNote, mathAlgebraNoteGr10_11, mathStatsFormulaNoteGr10_11, mathNoteGr10Custom,
-      scienceNoteGr10, scienceNoteGr10Custom, scienceChemistryNoteGr10_11, sciencePhysicsNoteGr10_11,
+      mathSanduTheoryMasterNotes, mathGeometryNote, mathNoteGr10Custom,
+      scienceNoteGr10, scienceNoteGr10Custom,
       historyNoteGr10, historyNoteGr10Custom, historyMapsNoteAllGrades, historyMapsFillBlanksGr09_11, historyTablesNoteGr10_11,
       buddhismNoteGr10, buddhismNoteGr10Custom, geoNoteGr10, geoNoteGr10Custom, civicNoteGr10, civicNoteGr10Custom, commerceNote, ictNote,
       agriNote, healthNoteGr10, danceNote, danceNoteGr10Custom, musicNoteGr10_11_1, musicNoteGr10_11_2, musicNoteGr10Custom,
       artNoteGr10_11, artNoteGr10Custom, dramaNoteGr10_11
     )
-  } else if (grade == "09") {
-    return listOf(
-      sinhalaGrammarNote,
-      historyMapsNoteAllGrades,
-      historyMapsFillBlanksGr09_11,
-      englishShortNoteAllGrades,
-      englishShortNoteGr09_11
-    )
-  } else if (grade == "06") {
-    val mathNoteGr06 = ShortNoteItem(
-      id = "math_note_gr06_1",
+  } else if (grade == "09" || grade == "9") {
+    val mathNoteGr09 = ShortNoteItem(
+      id = "math_note_gr09",
       subject = "ගණිතය",
-      title = "06 ශ්‍රේණිය - ගණිතය කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය ගණිතය කෙටි සටහන්",
+      title = "09 ශ්‍රේණිය - ගණිතය කෙටි සටහන් සහ සමීකරණ",
+      topicSinhala = "09 ශ්‍රේණිය ගණිතය කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1tSHjy3UMHx5wwmgKu3lVEZp4NGlvYy9R/preview",
-      fileName = "Math_Short_Notes_Gr06.pdf",
+      fileName = "Math_Short_Notes_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val scienceNoteGr06 = ShortNoteItem(
-      id = "science_note_gr06_1",
+    val scienceNoteGr09 = ShortNoteItem(
+      id = "science_note_gr09",
       subject = "විද්‍යාව",
-      title = "06 ශ්‍රේණිය - විද්‍යාව කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය විද්‍යාව කෙටි සටහන්",
+      title = "09 ශ්‍රේණිය - විද්‍යාව සියලුම පාඩම් කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය විද්‍යාව කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1Tipgj2cT0k0_udNbue_38XtC1OZ0FmlD/preview",
-      fileName = "Science_Short_Notes_Gr06.pdf",
+      fileName = "Science_Short_Notes_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val historyNoteGr06 = ShortNoteItem(
-      id = "history_note_gr06_1",
+    val historyNoteGr09 = ShortNoteItem(
+      id = "history_note_gr09",
       subject = "ඉතිහාසය",
-      title = "06 ශ්‍රේණිය - ඉතිහාසය කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය ඉතිහාසය කෙටි සටහන්",
+      title = "09 ශ්‍රේණිය - ඉතිහාසය කෙටි සටහන් හා මූලාශ්‍ර",
+      topicSinhala = "09 ශ්‍රේණිය ඉතිහාසය කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1FB_ACv30IM6MD6bJsK41MRKUluLR5y12/preview",
-      fileName = "History_Short_Notes_Gr06.pdf",
+      fileName = "History_Short_Notes_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val buddhismNoteGr06 = ShortNoteItem(
-      id = "buddhism_note_gr06_1",
+    val buddhismNoteGr09 = ShortNoteItem(
+      id = "buddhism_note_gr09",
       subject = "බුද්ධ ධර්මය",
-      title = "06 ශ්‍රේණිය - බුද්ධ ධර්මය කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය බුද්ධ ධර්මය කෙටි සටහන්",
+      title = "09 ශ්‍රේණිය - බුද්ධ ධර්මය කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය බුද්ධ ධර්මය කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1hP20VA2qbur4aTvLc0lXczHqheF-wrbh/preview",
-      fileName = "Buddhism_Short_Notes_Gr06.pdf",
+      fileName = "Buddhism_Short_Notes_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val sinhalaNoteGr06 = ShortNoteItem(
-      id = "sinhala_note_gr06_1",
-      subject = "සිංහල",
-      title = "06 ශ්‍රේණිය - සිංහල කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය සිංහල කෙටි සටහන්",
+    val sinhalaNoteGr09 = ShortNoteItem(
+      id = "sinhala_note_gr09",
+      subject = "සිංහල භාෂාව හා සාහිත්‍යය",
+      title = "09 ශ්‍රේණිය - සිංහල සාහිත්‍ය සංග්‍රහය හා ව්‍යාකරණ",
+      topicSinhala = "09 ශ්‍රේණිය සිංහල කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/11f_8h5kALDhWYyi9JVcWaVTmN2SHfr8b/preview",
-      fileName = "Sinhala_Short_Notes_Gr06.pdf",
+      fileName = "Sinhala_Short_Notes_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val geoNoteGr06 = ShortNoteItem(
-      id = "geo_note_gr06_1",
+    val geoNoteGr09 = ShortNoteItem(
+      id = "geo_note_gr09",
       subject = "භූගෝල විද්‍යාව",
-      title = "06 ශ්‍රේණිය - භූගෝල විද්‍යාව කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය භූගෝල විද්‍යාව කෙටි සටහන්",
+      title = "09 ශ්‍රේණිය - භූගෝල විද්‍යාව කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය භූගෝල විද්‍යාව කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1lO6Mmqqx_lutYKe-Hx9ax8hPB-ekNvpO/preview",
-      fileName = "Geography_Short_Notes_Gr06.pdf",
+      fileName = "Geography_Short_Notes_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val civicNoteGr06 = ShortNoteItem(
-      id = "civic_note_gr06_1",
+    val civicNoteGr09 = ShortNoteItem(
+      id = "civic_note_gr09",
       subject = "පුරවැසි අධ්‍යාපනය",
-      title = "06 ශ්‍රේණිය - පුරවැසි අධ්‍යාපනය කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය පුරවැසි අධ්‍යාපනය කෙටි සටහන්",
+      title = "09 ශ්‍රේණිය - පුරවැසි අධ්‍යාපනය කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය පුරවැසි අධ්‍යාපනය කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1Rb6xpu4vzS9RKVANqp8OZWuC4kuiRGRn/preview",
-      fileName = "Civic_Education_Short_Notes_Gr06.pdf",
+      fileName = "Civic_Education_Short_Notes_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val ptsNoteGr06 = ShortNoteItem(
-      id = "pts_note_gr06_1",
+    val ptsNoteGr09 = ShortNoteItem(
+      id = "pts_note_gr09",
       subject = "ප්‍රායෝගික හා තාක්ෂණික කුසලතා",
-      title = "06 ශ්‍රේණිය - ප්‍රායෝගික හා තාක්ෂණික කුසලතා කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය ප්‍රායෝගික තාක්ෂණික කුසලතා කෙටි සටහන්",
+      title = "09 ශ්‍රේණිය - ප්‍රායෝගික හා තාක්ෂණික කුසලතා (PTS) කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය PTS කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1kX5ozm3dsCklGg2DuGlhl19VzmJ5Cb_-/preview",
-      fileName = "PTS_Practical_Technical_Skills_Gr06.pdf",
+      fileName = "PTS_Practical_Technical_Skills_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val healthNoteGr06 = ShortNoteItem(
-      id = "health_note_gr06_1",
+    val ictNoteGr09 = ShortNoteItem(
+      id = "ict_note_gr09",
+      subject = "තොරතුරු තාක්ෂණය",
+      title = "09 ශ්‍රේණිය - තොරතුරු තාක්ෂණය කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය තොරතුරු තාක්ෂණය",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1IQntv3Yh1Oaxh42-btqYaFNNA9uijfx_/preview",
+      fileName = "ICT_Short_Notes_Gr09.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val commNoteGr09 = ShortNoteItem(
+      id = "comm_note_gr09",
+      subject = "ව්‍යාපාර අධ්‍යයනය හා ගිණුම්කරණය",
+      title = "09 ශ්‍රේණිය - ව්‍යාපාර හා ගිණුම්කරණ අධ්‍යයනය කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය වාණිජ්‍ය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1F99lDkXQ2h-z6V15J-N56P36c340Q9K8/preview",
+      fileName = "Commerce_Short_Notes_Gr09.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val healthNoteGr09 = ShortNoteItem(
+      id = "health_note_gr09",
       subject = "සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය",
-      title = "06 ශ්‍රේණිය - සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය කෙටි සටහන්",
+      title = "09 ශ්‍රේණිය - සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය සෞඛ්‍ය කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1EOtcHbT0Uz7Rh4BiovCvmlXEckqQJPKg/preview",
-      fileName = "Health_Physical_Education_Short_Notes_Gr06.pdf",
+      fileName = "Health_Physical_Education_Short_Notes_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
-    val danceNoteGr06 = ShortNoteItem(
-      id = "dance_note_gr06_1",
-      subject = "නර්තනය",
-      title = "06 ශ්‍රේණිය - නර්තනය කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය නර්තනය කෙටි සටහන්",
-      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
-      isPopular = true,
-      pdfUri = "https://drive.google.com/file/d/1bMT2MxKVQIee92Rfb5s-VKp9gjzcahUi/preview",
-      fileName = "Dancing_Short_Notes_Gr06.pdf",
-      isPasswordProtected = false,
-      password = null
-    )
-    val musicNoteGr06 = ShortNoteItem(
-      id = "music_note_gr06_1",
-      subject = "සංගීතය",
-      title = "06 ශ්‍රේණිය - සංගීතය කෙටි සටහන්",
-      topicSinhala = "06 ශ්‍රේණිය සංගීතය කෙටි සටහන්",
+    val musicNoteGr09 = ShortNoteItem(
+      id = "music_note_gr09",
+      subject = "පෙරදිග සංගීතය",
+      title = "09 ශ්‍රේණිය - පෙරදිග සංගීතය කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය සංගීතය කෙටි සටහන්",
       readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
       isPopular = true,
       pdfUri = "https://drive.google.com/file/d/1nD_0DB7NBI4biRbJQehrHRO85gCUripA/preview",
-      fileName = "Music_Short_Notes_Gr06.pdf",
+      fileName = "Music_Short_Notes_Gr09.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val danceNoteGr09 = ShortNoteItem(
+      id = "dance_note_gr09",
+      subject = "නර්තනය",
+      title = "09 ශ්‍රේණිය - නර්තනය කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය නර්තනය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1bMT2MxKVQIee92Rfb5s-VKp9gjzcahUi/preview",
+      fileName = "Dancing_Short_Notes_Gr09.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val artNoteGr09 = ShortNoteItem(
+      id = "art_note_gr09",
+      subject = "චිත්‍ර",
+      title = "09 ශ්‍රේණිය - චිත්‍ර කලාව කෙටි සටහන්",
+      topicSinhala = "09 ශ්‍රේණිය චිත්‍ර කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1sgIxFoMazNG1VeFlG0EcZH28oq-mrk9Y/preview",
+      fileName = "Art_Short_Notes_Gr09.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val engNoteGr09 = ShortNoteItem(
+      id = "eng_note_gr09",
+      subject = "ඉංග්‍රීසි භාෂාව",
+      title = "09 ශ්‍රේණිය - ඉංග්‍රීසි භාෂාව Grammar & Vocabulary",
+      topicSinhala = "09 ශ්‍රේණිය ඉංග්‍රීසි කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/155eu00n0_0IdrKc0wiWDqcwkqLa08ndI/preview",
+      fileName = "English_Grammar_Vocabulary_Gr09.pdf",
       isPasswordProtected = false,
       password = null
     )
     return listOf(
-      sinhalaNoteGr06,
-      mathNoteGr06,
-      scienceNoteGr06,
-      historyNoteGr06,
-      buddhismNoteGr06,
-      geoNoteGr06,
-      civicNoteGr06,
-      ptsNoteGr06,
-      healthNoteGr06,
-      danceNoteGr06,
-      musicNoteGr06,
-      sinhalaGrammarNote,
-      historyMapsNoteAllGrades,
-      historyMapsFillBlanksGr09_11,
-      englishShortNoteAllGrades
+      sinhalaNoteGr09, mathNoteGr09, scienceNoteGr09, historyNoteGr09, buddhismNoteGr09,
+      geoNoteGr09, civicNoteGr09, commNoteGr09, ictNoteGr09, ptsNoteGr09, healthNoteGr09,
+      engNoteGr09, musicNoteGr09, danceNoteGr09, artNoteGr09,
+      sinhalaGrammarNote, historyMapsNoteAllGrades, historyMapsFillBlanksGr09_11,
+      englishShortNoteAllGrades, englishShortNoteGr09_11
+    )
+  } else if (grade == "08" || grade == "8" || grade == "07" || grade == "7" || grade == "06" || grade == "6") {
+    val gr = if (grade.length == 1) "0$grade" else grade
+    val grInt = gr.toIntOrNull() ?: 6
+    val mathNote = ShortNoteItem(
+      id = "math_note_gr$gr",
+      subject = "ගණිතය",
+      title = "$grInt ශ්‍රේණිය - ගණිතය කෙටි සටහන් සහ සමීකරණ",
+      topicSinhala = "$grInt ශ්‍රේණිය ගණිතය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1tSHjy3UMHx5wwmgKu3lVEZp4NGlvYy9R/preview",
+      fileName = "Math_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val scienceNote = ShortNoteItem(
+      id = "science_note_gr$gr",
+      subject = "විද්‍යාව",
+      title = "$grInt ශ්‍රේණිය - විද්‍යාව සියලුම පාඩම් කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය විද්‍යාව කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1Tipgj2cT0k0_udNbue_38XtC1OZ0FmlD/preview",
+      fileName = "Science_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val historyNote = ShortNoteItem(
+      id = "history_note_gr$gr",
+      subject = "ඉතිහාසය",
+      title = "$grInt ශ්‍රේණිය - ඉතිහාසය කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය ඉතිහාසය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1FB_ACv30IM6MD6bJsK41MRKUluLR5y12/preview",
+      fileName = "History_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val buddhismNote = ShortNoteItem(
+      id = "buddhism_note_gr$gr",
+      subject = "බුද්ධ ධර්මය",
+      title = "$grInt ශ්‍රේණිය - බුද්ධ ධර්මය කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය බුද්ධ ධර්මය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1hP20VA2qbur4aTvLc0lXczHqheF-wrbh/preview",
+      fileName = "Buddhism_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val sinhalaNote = ShortNoteItem(
+      id = "sinhala_note_gr$gr",
+      subject = "සිංහල භාෂාව හා සාහිත්‍යය",
+      title = "$grInt ශ්‍රේණිය - සිංහල සාහිත්‍යය හා ව්‍යාකරණ කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය සිංහල කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/11f_8h5kALDhWYyi9JVcWaVTmN2SHfr8b/preview",
+      fileName = "Sinhala_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val geoNote = ShortNoteItem(
+      id = "geo_note_gr$gr",
+      subject = "භූගෝල විද්‍යාව",
+      title = "$grInt ශ්‍රේණිය - භූගෝල විද්‍යාව කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය භූගෝල විද්‍යාව කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1lO6Mmqqx_lutYKe-Hx9ax8hPB-ekNvpO/preview",
+      fileName = "Geography_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val civicNote = ShortNoteItem(
+      id = "civic_note_gr$gr",
+      subject = "පුරවැසි අධ්‍යාපනය",
+      title = "$grInt ශ්‍රේණිය - පුරවැසි අධ්‍යාපනය කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය පුරවැසි අධ්‍යාපනය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1Rb6xpu4vzS9RKVANqp8OZWuC4kuiRGRn/preview",
+      fileName = "Civic_Education_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val ptsNote = ShortNoteItem(
+      id = "pts_note_gr$gr",
+      subject = "ප්‍රායෝගික හා තාක්ෂණික කුසලතා",
+      title = "$grInt ශ්‍රේණිය - ප්‍රායෝගික හා තාක්ෂණික කුසලතා (PTS) කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය PTS කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1kX5ozm3dsCklGg2DuGlhl19VzmJ5Cb_-/preview",
+      fileName = "PTS_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val ictNote = ShortNoteItem(
+      id = "ict_note_gr$gr",
+      subject = "තොරතුරු තාක්ෂණය",
+      title = "$grInt ශ්‍රේණිය - තොරතුරු තාක්ෂණය කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය තොරතුරු තාක්ෂණය",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1IQntv3Yh1Oaxh42-btqYaFNNA9uijfx_/preview",
+      fileName = "ICT_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val healthNote = ShortNoteItem(
+      id = "health_note_gr$gr",
+      subject = "සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය",
+      title = "$grInt ශ්‍රේණිය - සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය සෞඛ්‍ය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1EOtcHbT0Uz7Rh4BiovCvmlXEckqQJPKg/preview",
+      fileName = "Health_Physical_Education_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val danceNote = ShortNoteItem(
+      id = "dance_note_gr$gr",
+      subject = "නර්තනය",
+      title = "$grInt ශ්‍රේණිය - නර්තනය කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය නර්තනය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1bMT2MxKVQIee92Rfb5s-VKp9gjzcahUi/preview",
+      fileName = "Dancing_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val musicNote = ShortNoteItem(
+      id = "music_note_gr$gr",
+      subject = "පෙරදිග සංගීතය",
+      title = "$grInt ශ්‍රේණිය - පෙරදිග සංගීතය කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය සංගීතය කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1nD_0DB7NBI4biRbJQehrHRO85gCUripA/preview",
+      fileName = "Music_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val artNote = ShortNoteItem(
+      id = "art_note_gr$gr",
+      subject = "චිත්‍ර",
+      title = "$grInt ශ්‍රේණිය - චිත්‍ර කලාව කෙටි සටහන්",
+      topicSinhala = "$grInt ශ්‍රේණිය චිත්‍ර කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/1sgIxFoMazNG1VeFlG0EcZH28oq-mrk9Y/preview",
+      fileName = "Art_Short_Notes_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    val engNote = ShortNoteItem(
+      id = "eng_note_gr$gr",
+      subject = "ඉංග්‍රීසි භාෂාව",
+      title = "$grInt ශ්‍රේණිය - ඉංග්‍රීසි භාෂාව Grammar & Vocabulary",
+      topicSinhala = "$grInt ශ්‍රේණිය ඉංග්‍රීසි කෙටි සටහන්",
+      readTime = "🔒 ආරක්ෂිත PDF • Google Drive",
+      isPopular = true,
+      pdfUri = "https://drive.google.com/file/d/155eu00n0_0IdrKc0wiWDqcwkqLa08ndI/preview",
+      fileName = "English_Grammar_Vocabulary_Gr$gr.pdf",
+      isPasswordProtected = false,
+      password = null
+    )
+    return listOf(
+      sinhalaNote, mathNote, scienceNote, historyNote, buddhismNote,
+      geoNote, civicNote, ictNote, ptsNote, healthNote,
+      engNote, musicNote, danceNote, artNote,
+      sinhalaGrammarNote, historyMapsNoteAllGrades, englishShortNoteAllGrades
     )
   } else {
-    // Grades 07, 08, 09: Strictly return ONLY the user-provided syllabus notes (Sinhala Grammar, History Maps, English Grammar)
     return listOf(
       sinhalaGrammarNote,
       historyMapsNoteAllGrades,
-      historyMapsFillBlanksGr09_11,
       englishShortNoteAllGrades
     )
   }
@@ -6062,6 +6646,168 @@ fun getPapersForGrade(grade: String): List<QuestionPaperItem> {
       )
     )
   }
+  if (grade == "09" || grade == "9" || grade == "08" || grade == "8" || grade == "07" || grade == "7" || grade == "06" || grade == "6") {
+    val gr = if (grade.length == 1) "0$grade" else grade
+    val grInt = gr.toIntOrNull() ?: 6
+    return listOf(
+      QuestionPaperItem(
+        id = "math_gr${gr}_term1_paper",
+        subject = "ගණිතය",
+        titleSinhala = "$grInt ශ්‍රේණිය - ගණිතය 1 වන වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "1 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1f9jYHMCPltGtG0NKICloYDdZFz-jiSW6/preview",
+        fileName = "Grade_${gr}_Mathematics_1st_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "math_gr${gr}_term2_paper",
+        subject = "ගණිතය",
+        titleSinhala = "$grInt ශ්‍රේණිය - ගණිතය 2 වන වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1f9jYHMCPltGtG0NKICloYDdZFz-jiSW6/preview",
+        fileName = "Grade_${gr}_Mathematics_2nd_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "science_gr${gr}_term1_paper",
+        subject = "විද්‍යාව",
+        titleSinhala = "$grInt ශ්‍රේණිය - විද්‍යාව 1 වන වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "1 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1NDclAIyinjTEYML9IjrRv4QMORbZBggc/preview",
+        fileName = "Grade_${gr}_Science_1st_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "science_gr${gr}_term2_paper",
+        subject = "විද්‍යාව",
+        titleSinhala = "$grInt ශ්‍රේණිය - විද්‍යාව 2 වන වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1NDclAIyinjTEYML9IjrRv4QMORbZBggc/preview",
+        fileName = "Grade_${gr}_Science_2nd_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "sinhala_gr${gr}_term2_paper",
+        subject = "සිංහල භාෂාව හා සාහිත්‍යය",
+        titleSinhala = "$grInt ශ්‍රේණිය - සිංහල භාෂාව හා සාහිත්‍යය වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1zKtgd_badE2crpYDfX8xPnxjb-lT6VvD/preview",
+        fileName = "Grade_${gr}_Sinhala_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "history_gr${gr}_term2_paper",
+        subject = "ඉතිහාසය",
+        titleSinhala = "$grInt ශ්‍රේණිය - ඉතිහාසය වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1FB_ACv30IM6MD6bJsK41MRKUluLR5y12/preview",
+        fileName = "Grade_${gr}_History_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "buddhism_gr${gr}_term2_paper",
+        subject = "බුද්ධ ධර්මය",
+        titleSinhala = "$grInt ශ්‍රේණිය - බුද්ධ ධර්මය වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1hP20VA2qbur4aTvLc0lXczHqheF-wrbh/preview",
+        fileName = "Grade_${gr}_Buddhism_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "english_gr${gr}_term2_paper",
+        subject = "ඉංග්‍රීසි භාෂාව",
+        titleSinhala = "$grInt ශ්‍රේණිය - ඉංග්‍රීසි භාෂාව වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/155eu00n0_0IdrKc0wiWDqcwkqLa08ndI/preview",
+        fileName = "Grade_${gr}_English_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "geo_gr${gr}_term2_paper",
+        subject = "භූගෝල විද්‍යාව",
+        titleSinhala = "$grInt ශ්‍රේණිය - භූගෝල විද්‍යාව වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1lO6Mmqqx_lutYKe-Hx9ax8hPB-ekNvpO/preview",
+        fileName = "Grade_${gr}_Geography_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "civic_gr${gr}_term2_paper",
+        subject = "පුරවැසි අධ්‍යාපනය",
+        titleSinhala = "$grInt ශ්‍රේණිය - පුරවැසි අධ්‍යාපනය වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1Rb6xpu4vzS9RKVANqp8OZWuC4kuiRGRn/preview",
+        fileName = "Grade_${gr}_Civic_Education_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "ict_gr${gr}_term2_paper",
+        subject = "තොරතුරු තාක්ෂණය",
+        titleSinhala = "$grInt ශ්‍රේණිය - තොරතුරු තාක්ෂණය (ICT) වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1IQntv3Yh1Oaxh42-btqYaFNNA9uijfx_/preview",
+        fileName = "Grade_${gr}_ICT_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "pts_gr${gr}_term2_paper",
+        subject = "ප්‍රායෝගික හා තාක්ෂණික කුසලතා",
+        titleSinhala = "$grInt ශ්‍රේණිය - ප්‍රායෝගික හා තාක්ෂණික කුසලතා වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1kX5ozm3dsCklGg2DuGlhl19VzmJ5Cb_-/preview",
+        fileName = "Grade_${gr}_PTS_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      ),
+      QuestionPaperItem(
+        id = "health_gr${gr}_term2_paper",
+        subject = "සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය",
+        titleSinhala = "$grInt ශ්‍රේණිය - සෞඛ්‍ය හා ශාරීරික අධ්‍යාපනය වාර විභාග ප්‍රශ්න පත්‍රය",
+        year = "2024",
+        term = "2 වන වාරය",
+        marks = "100",
+        pdfUri = "https://drive.google.com/file/d/1EOtcHbT0Uz7Rh4BiovCvmlXEckqQJPKg/preview",
+        fileName = "Grade_${gr}_Health_Term_Exam_Paper.pdf",
+        isPasswordProtected = false,
+        password = null
+      )
+    )
+  }
   return emptyList()
 }
 
@@ -6201,10 +6947,8 @@ fun UnlimitedAccessPaymentDialog(
 
   val gradePackages = listOf(
     "10 සහ 11 ශ්‍රේණි (O/L Combo Pack)" to "⭐ 10 සහ 11 ශ්‍රේණි දෙකම එකවර (O/L Combo)",
-    "06 ශ්‍රේණිය (Grade 6 Single Pack)" to "06 ශ්‍රේණිය පමණක් (Grade 6)",
-    "07 ශ්‍රේණිය (Grade 7 Single Pack)" to "07 ශ්‍රේණිය පමණක් (Grade 7)",
-    "08 ශ්‍රේණිය (Grade 8 Single Pack)" to "08 ශ්‍රේණිය පමණක් (Grade 8)",
-    "06 සිට 11 දක්වා සියලුම ශ්‍රේණි (All Grades Mega Pack)" to "👑 06 සිට 11 දක්වා සියලුම ශ්‍රේණි (Mega Pack)"
+    "10 ශ්‍රේණිය (Grade 10 Single Pack)" to "10 ශ්‍රේණිය පමණක් (Grade 10)",
+    "11 ශ්‍රේණිය (Grade 11 Single Pack)" to "11 ශ්‍රේණිය පමණක් (Grade 11 - O/L)"
   )
 
   val slipPickerLauncher = rememberLauncherForActivityResult(
@@ -6933,14 +7677,14 @@ fun LoginAndApprovalDialog(
 
           Spacer(modifier = Modifier.height(16.dp))
 
-        // Tabs Header
+        // Tabs Header (Unified Student & Admin Login)
         Surface(
           shape = RoundedCornerShape(12.dp),
           color = Color(0xFFF1F5F9),
           modifier = Modifier.fillMaxWidth()
         ) {
           TabRow(
-            selectedTabIndex = selectedTab,
+            selectedTabIndex = if (selectedTab > 1) 0 else selectedTab,
             containerColor = Color(0xFFF1F5F9),
             contentColor = BluePrimary,
             indicator = {}
@@ -6948,17 +7692,12 @@ fun LoginAndApprovalDialog(
             Tab(
               selected = selectedTab == 0,
               onClick = { selectedTab = 0 },
-              text = { Text("ඇතුළුවීම", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+              text = { Text("ඇතුළුවීම (Login)", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             )
             Tab(
               selected = selectedTab == 1,
               onClick = { selectedTab = 1 },
-              text = { Text("ලියාපදිංචිය", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-            )
-            Tab(
-              selected = selectedTab == 2,
-              onClick = { selectedTab = 2 },
-              text = { Text("ඇඩ්මින්", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+              text = { Text("ලියාපදිංචිය (Register)", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             )
           }
         }
@@ -6974,71 +7713,23 @@ fun LoginAndApprovalDialog(
               border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
               modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)
             ) {
-              Column(modifier = Modifier.padding(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  Icon(Icons.Default.AutoAwesome, contentDescription = "Quick Login", tint = BluePrimary, modifier = Modifier.size(18.dp))
-                  Spacer(modifier = Modifier.width(6.dp))
-                  Text("⚡ ක්ෂණික ප්‍රවේශය (1-Tap Fast Login)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = BluePrimary)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                  modifier = Modifier.fillMaxWidth(),
-                  horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                  Button(
-                    onClick = {
-                      val (currDevId, currDevName) = getDeviceIdentifier(context)
-                      val user = registeredUsers.firstOrNull { !isAuthorizedAdminUser(it.usernameOrPhone) } 
-                        ?: registeredUsers.first()
-                      if (user.boundDeviceId != null && user.boundDeviceId != currDevId) {
-                        deviceLockedUserForAlert = user
-                      } else {
-                        val updated = user.copy(
-                          boundDeviceId = user.boundDeviceId ?: currDevId,
-                          boundDeviceName = user.boundDeviceName ?: currDevName,
-                          boundDate = user.boundDate ?: "2026-08-20",
-                          isApproved = true
-                        )
-                        val idx = registeredUsers.indexOf(user)
-                        if (idx >= 0) registeredUsers[idx] = updated
-                        onLoginSuccess(updated)
-                        Toast.makeText(context, "🎓 සාදරයෙන් පිළිගනිමු ${user.fullName}!", Toast.LENGTH_SHORT).show()
-                      }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                  ) {
-                    Text("🎓 ශිෂ්‍ය ලොගින්", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                  }
-
-                  Button(
-                    onClick = {
-                      val isAuth = isAuthorizedAdminUser(loginPhone)
-                      if (isAuth) {
-                        val adminUser = registeredUsers.firstOrNull { isAuthorizedAdminUser(it.usernameOrPhone) }
-                          ?: UserAccount("1", "අකිල ප්‍රබාත් (Admin)", loginPhone.trim(), "A20020521PD", isApproved = true)
-                        onAdminLoginSuccess()
-                        onLoginSuccess(adminUser)
-                        Toast.makeText(context, "👑 ඇඩ්මින් පාලනය සක්‍රීය විය (${adminUser.fullName})!", Toast.LENGTH_SHORT).show()
-                      } else {
-                        Toast.makeText(context, "❌ අනවසරයි! ඇඩ්මින් ප්‍රවේශය සඳහා 0772843861, 0717136085 හෝ prabathakila450@gmail.com පමණක් වලංගු වේ.", Toast.LENGTH_LONG).show()
-                      }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                  ) {
-                    Text("👑 ඇඩ්මින් ලොගින්", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                  }
-                }
+              Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(Icons.Default.Security, contentDescription = "Security", tint = BluePrimary, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  "🔒 ඇඩ්මින් අනුමැතිය ලැබූ ශිෂ්‍ය ගිණුම්වලට සහ ඇඩ්මින්වරුන්ට පමණක් පූර්ණ ප්‍රවේශය හිමිවේ.",
+                  fontSize = 11.5.sp,
+                  color = Color(0xFF1E40AF),
+                  lineHeight = 16.sp
+                )
               }
             }
 
             Text(
-              text = "හෝ ඔබගේ විස්තර මඟින් ඇතුළු වන්න (Sign In)",
+              text = "ඔබගේ විස්තර මඟින් ඇතුළු වන්න (Sign In)",
               fontWeight = FontWeight.Bold,
               fontSize = 13.sp,
               color = NeutralDark,
@@ -7083,7 +7774,13 @@ fun LoginAndApprovalDialog(
                 val cleanPass = loginPassword.trim()
 
                 if (cleanInput.isBlank()) {
-                  Toast.makeText(context, "කරුණාකර දුරකථන අංකය හෝ විස්තර ඇතුළත් කරන්න", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, "කරුණාකර දුරකථන අංකය හෝ Email ඇතුළත් කරන්න", Toast.LENGTH_SHORT).show()
+                  return@Button
+                }
+
+                // VPN Access Block Check
+                if (AppSecurityManager.isVpnConnected(context)) {
+                  Toast.makeText(context, "🚫 VPN සක්‍රීයව පවතී! ආරක්ෂක හේතූන් මත VPN ක්‍රියාවිරහිත කර ඇතුළු වන්න.", Toast.LENGTH_LONG).show()
                   return@Button
                 }
 
@@ -7103,12 +7800,37 @@ fun LoginAndApprovalDialog(
                   it.fullName.trim().contains(cleanInput, ignoreCase = true)
                 }
 
+                // CHECK STRICT ADMIN CREDENTIALS (0772843861, 0717136085, prabathakila450@gmail.com)
+                if (isAuthorizedAdminUser(cleanInput)) {
+                  val expectedAdminPass = getAdminMasterPassword(context)
+                  val isPassValid = cleanPass.isNotBlank() && (
+                    cleanPass == expectedAdminPass || 
+                    cleanPass == "A20020521PD" || 
+                    (foundUser != null && cleanPass == foundUser.password)
+                  )
+                  if (!isPassValid) {
+                    val locked = AppSecurityManager.recordFailedLogin(cleanInput)
+                    if (locked) {
+                      Toast.makeText(context, "🚫 වැරදි මුරපද ප්‍රමාණය ඉක්මවා ඇත! ගිණුම තත්පර 60කට අගුලු ලන ලදී.", Toast.LENGTH_LONG).show()
+                    } else {
+                      Toast.makeText(context, "❌ ඇඩ්මින් මුරපදය වැරදියි! කරුණාකර නිවැරදි මුරපදය ඇතුළත් කරන්න.", Toast.LENGTH_LONG).show()
+                    }
+                    return@Button
+                  }
+
+                  AppSecurityManager.resetFailedLogins(cleanInput)
+                  setAdminSessionActive(context, true)
+                  val adminUser = foundUser ?: UserAccount("1", "අකිල ප්‍රබාත් (Admin)", cleanInput, expectedAdminPass, isApproved = true, paymentStatus = "Approved")
+                  onAdminLoginSuccess()
+                  onLoginSuccess(adminUser)
+                  Toast.makeText(context, "👑 සාදරයෙන් පිළිගනිමු අකිල ප්‍රබාත්! ඇඩ්මින් පාලනය සාර්ථකව සක්‍රීය විය.", Toast.LENGTH_LONG).show()
+                  return@Button
+                }
+
+                // NORMAL STUDENT AUTHENTICATION
                 if (foundUser != null) {
-                  // Password Verification (supporting admin master pass, stored pass, or hash)
                   val isPassValid = cleanPass.isBlank() ||
                     foundUser.password == cleanPass ||
-                    isAuthorizedAdminUser(cleanInput) ||
-                    cleanPass == "A20020521PD" ||
                     foundUser.password == AppSecurityManager.hashPassword(cleanPass)
 
                   if (!isPassValid) {
@@ -7131,42 +7853,22 @@ fun LoginAndApprovalDialog(
                     val updatedUser = foundUser.copy(
                       boundDeviceId = foundUser.boundDeviceId ?: currDevId,
                       boundDeviceName = foundUser.boundDeviceName ?: currDevName,
-                      boundDate = foundUser.boundDate ?: "2026-08-20",
-                      isApproved = true
+                      boundDate = foundUser.boundDate ?: "2026-08-20"
                     )
                     val idx = registeredUsers.indexOf(foundUser)
                     if (idx >= 0) {
                       registeredUsers[idx] = updatedUser
                     }
-                    if (isAuthorizedAdminUser(cleanInput) || isAuthorizedAdminUser(foundUser.usernameOrPhone)) {
-                      onAdminLoginSuccess()
-                    }
                     onLoginSuccess(updatedUser)
                     val bindMsg = if (foundUser.boundDeviceId == null) " (📱 ගිණුම මෙම දුරකථනයට Lock විය)" else ""
-                    val roleLabel = if (isAuthorizedAdminUser(cleanInput)) "👑 ඇඩ්මින්" else "🎓 ශිෂ්‍ය"
-                    Toast.makeText(context, "සාදරයෙන් පිළිගනිමු ${updatedUser.fullName}! ($roleLabel)$bindMsg", Toast.LENGTH_SHORT).show()
+                    if (updatedUser.isApproved) {
+                      Toast.makeText(context, "සාදරයෙන් පිළිගනිමු ${updatedUser.fullName}! (🎓 අනුමත ශිෂ්‍ය)$bindMsg", Toast.LENGTH_SHORT).show()
+                    } else {
+                      Toast.makeText(context, "සාදරයෙන් පිළිගනිමු ${updatedUser.fullName}! ඔබගේ ගිණුම තවමත් ඇඩ්මින් අනුමත කර නොමැත. කරුණාකර අනුමැතිය ලබාගන්න.", Toast.LENGTH_LONG).show()
+                    }
                   }
                 } else if (cleanInput.isNotBlank()) {
-                  AppSecurityManager.resetFailedLogins(cleanInput)
-                  // New student registration & lock to current phone
-                  val isAdminRole = isAuthorizedAdminUser(cleanInput)
-                  val newAcc = UserAccount(
-                    id = (registeredUsers.size + 1).toString(),
-                    fullName = if (cleanInput.contains("@")) cleanInput.substringBefore("@") else "ශිෂ්‍ය ගිණුම ($cleanInput)",
-                    usernameOrPhone = cleanInput,
-                    password = cleanPass.ifBlank { "1234" },
-                    isApproved = true,
-                    paymentStatus = "Approved",
-                    boundDeviceId = currDevId,
-                    boundDeviceName = currDevName,
-                    boundDate = "2026-08-20"
-                  )
-                  registeredUsers.add(newAcc)
-                  if (isAdminRole) {
-                    onAdminLoginSuccess()
-                  }
-                  onLoginSuccess(newAcc)
-                  Toast.makeText(context, "සාදරයෙන් පිළිගනිමු ${newAcc.fullName}! (📱 මෙම දුරකථනයට Lock විය)", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, "❌ ලියාපදිංචි නොවූ දුරකථන අංකයකි! කරුණාකර පළමුව ලියාපදිංචි වී ඇඩ්මින් අනුමැතිය ලබාගන්න.", Toast.LENGTH_LONG).show()
                 }
               },
               colors = ButtonDefaults.buttonColors(containerColor = BluePrimary),
@@ -7231,23 +7933,39 @@ fun LoginAndApprovalDialog(
             Button(
               onClick = {
                 val (currDevId, currDevName) = getDeviceIdentifier(context)
-                if (regName.isBlank() || regPhone.isBlank()) {
+                val cleanPhone = regPhone.trim()
+                if (regName.isBlank() || cleanPhone.isBlank()) {
                   Toast.makeText(context, "කරුණාකර සියලු විස්තර ඇතුළත් කරන්න", Toast.LENGTH_SHORT).show()
+                } else if (AppSecurityManager.isVpnConnected(context)) {
+                  Toast.makeText(context, "🚫 VPN සක්‍රීයව පවතී! VPN ක්‍රියාවිරහිත කර ලියාපදිංචි වන්න.", Toast.LENGTH_LONG).show()
                 } else {
+                  val existing = registeredUsers.find { it.usernameOrPhone.trim().equals(cleanPhone, ignoreCase = true) }
+                  if (existing != null) {
+                    if (existing.boundDeviceId != null && existing.boundDeviceId != currDevId) {
+                      deviceLockedUserForAlert = existing
+                    } else {
+                      Toast.makeText(context, "❌ මෙම දුරකථන අංකය දැනටමත් ලියාපදිංචි කර ඇත! කරුණාකර Login වන්න.", Toast.LENGTH_LONG).show()
+                      loginPhone = cleanPhone
+                      selectedTab = 0
+                    }
+                    return@Button
+                  }
+
                   val newAcc = UserAccount(
                     id = System.currentTimeMillis().toString(),
                     fullName = regName.trim(),
-                    usernameOrPhone = regPhone.trim(),
+                    usernameOrPhone = cleanPhone,
                     password = regPassword.trim().ifBlank { "1234" },
-                    isApproved = true,
-                    paymentStatus = "Approved",
+                    isApproved = false,
+                    paymentStatus = "Pending",
+                    approvedGrades = emptyList(),
                     boundDeviceId = currDevId,
                     boundDeviceName = currDevName,
                     boundDate = "2026-08-20"
                   )
                   registeredUsers.add(newAcc)
                   onLoginSuccess(newAcc)
-                  Toast.makeText(context, "ලියාපදිංචිය සාර්ථකයි! ගිණුම මෙම දුරකථනයට සම්බන්ධ විය ($currDevName)", Toast.LENGTH_LONG).show()
+                  Toast.makeText(context, "ලියාපදිංචිය සාර්ථකයි! ඇප් එක පරිශීලනයට ඇඩ්මින් අනුමැතිය (Admin Approval) ලබාගන්න.", Toast.LENGTH_LONG).show()
                   regName = ""
                   regPhone = ""
                   regPassword = ""
@@ -7610,13 +8328,13 @@ fun LoginAndApprovalDialog(
 
                       Spacer(modifier = Modifier.height(6.dp))
 
-                      // Grade Selector Chips for Admin
+                      // Grade Selector Chips for Admin (10 & 11)
                       Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                       ) {
-                        listOf("06", "07", "08", "09", "10", "11").forEach { gradeNum ->
+                        listOf("10", "11").forEach { gradeNum ->
                           val isGradeApproved = user.approvedGrades.contains(gradeNum)
                           Surface(
                             onClick = {
@@ -7634,14 +8352,16 @@ fun LoginAndApprovalDialog(
                             },
                             shape = RoundedCornerShape(6.dp),
                             color = if (isGradeApproved) Color(0xFF1B5E20) else Color(0xFFE0E0E0),
-                            border = BorderStroke(1.dp, if (isGradeApproved) Color(0xFF2E7D32) else Color(0xFFBDBDBD))
+                            border = BorderStroke(1.dp, if (isGradeApproved) Color(0xFF2E7D32) else Color(0xFFBDBDBD)),
+                            modifier = Modifier.weight(1f)
                           ) {
                             Text(
-                              text = "$gradeNum වසර",
-                              fontSize = 9.sp,
+                              text = if (gradeNum == "11") "11 ශ්‍රේණිය (O/L)" else "10 ශ්‍රේණිය",
+                              fontSize = 10.sp,
                               fontWeight = FontWeight.Bold,
+                              textAlign = TextAlign.Center,
                               color = if (isGradeApproved) Color.White else Color(0xFF616161),
-                              modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp)
+                              modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)
                             )
                           }
                         }
@@ -7649,7 +8369,7 @@ fun LoginAndApprovalDialog(
 
                       Spacer(modifier = Modifier.height(4.dp))
 
-                      // Quick actions for O/L 10+11 combo and All Grades
+                      // Quick action for O/L 10+11 combo
                       Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
@@ -7663,25 +8383,9 @@ fun LoginAndApprovalDialog(
                               Toast.makeText(context, "${user.fullName} හට 10 සහ 11 ශ්‍රේණි (O/L) ලබාදුනි", Toast.LENGTH_SHORT).show()
                             }
                           },
-                          contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                          contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                         ) {
-                          Text("⭐ 10+11 O/L", fontSize = 9.sp, color = BluePrimary, fontWeight = FontWeight.Bold)
-                        }
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        TextButton(
-                          onClick = {
-                            val idx = registeredUsers.indexOf(user)
-                            if (idx != -1) {
-                              registeredUsers[idx] = user.copy(approvedGrades = listOf("06", "07", "08", "09", "10", "11"))
-                              onUsersUpdated()
-                              Toast.makeText(context, "${user.fullName} හට සියලු ශ්‍රේණි ලබාදුනි", Toast.LENGTH_SHORT).show()
-                            }
-                          },
-                          contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                        ) {
-                          Text("👑 සියල්ල (06-11)", fontSize = 9.sp, color = Color(0xFF137333), fontWeight = FontWeight.Bold)
+                          Text("⭐ 10+11 O/L පූර්ණ අනුමැතිය", fontSize = 10.sp, color = BluePrimary, fontWeight = FontWeight.Bold)
                         }
                       }
                     }
@@ -7794,19 +8498,18 @@ fun LoginAndApprovalDialog(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Grade Picker
+                    // Grade Picker (10 & 11)
                     Text("ශ්‍රේණිය (Grade) තෝරන්න:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NeutralDark)
                     Row(
-                      modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                      horizontalArrangement = Arrangement.spacedBy(6.dp)
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                      listOf("06", "07", "08", "09", "10", "11").forEach { g ->
+                      listOf("10", "11").forEach { g ->
                         FilterChip(
                           selected = adminPdfGrade == g,
                           onClick = { adminPdfGrade = g },
-                          label = { Text("$g වසර", fontSize = 11.sp) }
+                          label = { Text(if (g == "11") "11 ශ්‍රේණිය (O/L)" else "10 ශ්‍රේණිය", fontSize = 11.sp) },
+                          modifier = Modifier.weight(1f)
                         )
                       }
                     }
@@ -7902,7 +8605,6 @@ fun LoginAndApprovalDialog(
       }
     }
   }
-  }
 
   if (showRegSuccessDialog) {
     AlertDialog(
@@ -7980,4 +8682,5 @@ fun LoginAndApprovalDialog(
       }
     )
   }
+}
 }

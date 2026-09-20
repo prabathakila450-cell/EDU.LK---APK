@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 // ==============================================================================
 
 enum class SpecialFeatureSection(val id: String, val titleSinhala: String, val icon: String, val color: Color) {
+  OL_100_SUBJECT_TOOLS("ol_100_tools", "O/L මෙවලම් 100 (10x10 කාණ්ඩ)", "🛠️", Color(0xFF38BDF8)),
   SCIENCE_DIAGRAMS("sci_diagrams", "විද්‍යාව රූප සටහන් & සූත්‍ර", "🔬", Color(0xFF0D9488)),
   ENGLISH_WRITING_VAULT("eng_vault", "ඉංග්‍රීසි Writing Vault & Verbs", "✍️", Color(0xFF0284C7)),
   HISTORY_TIMELINE_MAPS("hist_suite", "ඉතිහාසය Timeline & සිතියම්", "🏛️", Color(0xFFD97706)),
@@ -54,9 +55,10 @@ enum class SpecialFeatureSection(val id: String, val titleSinhala: String, val i
 fun OlSpecialMasterFeaturesHubScreen(
   initialSection: SpecialFeatureSection? = null,
   onBack: () -> Unit,
-  onOpenPdfModal: ((url: String, title: String) -> Unit)? = null
+  onOpenPdfModal: ((url: String, title: String) -> Unit)? = null,
+  onOpenTools100: (() -> Unit)? = null
 ) {
-  var selectedSection by remember { mutableStateOf(initialSection ?: SpecialFeatureSection.SCIENCE_DIAGRAMS) }
+  var selectedSection by remember { mutableStateOf(initialSection ?: SpecialFeatureSection.OL_100_SUBJECT_TOOLS) }
 
   Scaffold(
     topBar = {
@@ -136,6 +138,7 @@ fun OlSpecialMasterFeaturesHubScreen(
           .background(Color(0xFF0B132B))
       ) {
         when (selectedSection) {
+          SpecialFeatureSection.OL_100_SUBJECT_TOOLS -> OlSubjectToolsScreen(onBack = { selectedSection = SpecialFeatureSection.SCIENCE_DIAGRAMS })
           SpecialFeatureSection.SCIENCE_DIAGRAMS -> ScienceDiagramsAndFormulaFeatureView()
           SpecialFeatureSection.ENGLISH_WRITING_VAULT -> EnglishWritingVaultAndVerbsFeatureView()
           SpecialFeatureSection.HISTORY_TIMELINE_MAPS -> HistoryTimelineAndMapPinningFeatureView()

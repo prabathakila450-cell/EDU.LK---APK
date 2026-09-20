@@ -57,22 +57,22 @@ data class GradeCardInfo(
 
 val availableGradesList = listOf(
   GradeCardInfo(
-    grade = "11",
-    gradeSinhala = "11 ශ්‍රේණිය (Grade 11)",
-    subtitle = "අ.පො.ස. සාමාන්‍ය පෙළ (O/L)",
-    description = "විද්‍යාව, ගණිතය, ඉතිහාසය, කෙටි සටහන් හා පසුගිය ප්‍රශ්න පත්‍ර",
-    imageRes = R.drawable.img_portal_header_bg_1786107362621,
-    color = Color(0xFF1B5E20),
-    tag = "O/L විභාගය"
-  ),
-  GradeCardInfo(
     grade = "10",
     gradeSinhala = "10 ශ්‍රේණිය (Grade 10)",
     subtitle = "සාමාන්‍ය පෙළ මූලික අධ්‍යයන",
-    description = "විද්‍යාව, ගණිතය, කෘෂි, වාණිජ්‍ය හා කෙටි සටහන් PDF",
+    description = "විද්‍යාව, ගණිතය, සිංහල, ඉංග්‍රීසි, කෘෂි, වාණිජ්‍ය, ICT හා කෙටි සටහන්",
     imageRes = R.drawable.img_subjects_bg_1786107319789,
     color = Color(0xFF0D47A1),
     tag = "O/L ආරම්භය"
+  ),
+  GradeCardInfo(
+    grade = "11",
+    gradeSinhala = "11 ශ්‍රේණිය (Grade 11)",
+    subtitle = "අ.පො.ස. සාමාන්‍ය පෙළ (O/L)",
+    description = "විද්‍යාව, ගණිතය, ඉතිහාසය, සිංහල, ඉංග්‍රීසි, ICT හා පසුගිය ප්‍රශ්න පත්‍ර",
+    imageRes = R.drawable.img_portal_header_bg_1786107362621,
+    color = Color(0xFF1B5E20),
+    tag = "O/L විභාගය"
   )
 )
 
@@ -133,6 +133,24 @@ fun GradesHomeScreen(
       .padding(horizontal = 10.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp)
   ) {
+    // 🎓 10 ශ්‍රේණිය සහ 11 ශ්‍රේණිය අනු කොටස් (ඇප් එකේ ඉහළටම ස්ථානගත කර ඇත)
+    val grade10Info = availableGradesList.firstOrNull { it.grade == "10" }
+    val grade11Info = availableGradesList.firstOrNull { it.grade == "11" }
+
+    grade10Info?.let {
+      GradeBannerCard(
+        gradeInfo = it,
+        onClick = { onGradeSelected(it.grade) }
+      )
+    }
+
+    grade11Info?.let {
+      GradeBannerCard(
+        gradeInfo = it,
+        onClick = { onGradeSelected(it.grade) }
+      )
+    }
+
     // 🏆 FEATURE: DAILY AUTOMATED LIVE 7:00 PM QUIZ CONTEST BANNER (Compact)
     Card(
       shape = RoundedCornerShape(10.dp),
@@ -334,70 +352,50 @@ fun GradesHomeScreen(
           onClick = onOpenEnglishBuilder
         )
 
-        // Feature 2: Standout Mistake Notebook Hero Banner (වරදවාගත් ප්‍රශ්න සංග්‍රහය)
-        Card(
-          shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        // Feature 2: Ultra-Compact Mistake Notebook Indicator (වරදවාගත් ප්‍රශ්න - Minimized width, completely non-obtrusive)
+        Surface(
+          shape = RoundedCornerShape(20.dp),
+          color = Color(0xFF0F172A).copy(alpha = 0.95f),
+          border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.35f)),
+          shadowElevation = 0.5.dp,
           modifier = Modifier
-            .fillMaxWidth()
+            .align(Alignment.CenterHorizontally)
+            .widthIn(max = 195.dp)
             .clickable { onOpenMistakeNotebook() }
         ) {
           Row(
             modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 14.dp, vertical = 12.dp),
+              .padding(horizontal = 8.dp, vertical = 3.5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.Center
           ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-              Box(
-                modifier = Modifier
-                  .size(36.dp)
-                  .clip(CircleShape)
-                  .background(Color(0xFFDC2626)),
-                contentAlignment = Alignment.Center
-              ) {
-                Text("⚠️", fontSize = 18.sp)
-              }
-              Spacer(modifier = Modifier.width(10.dp))
-              Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  Text(
-                    text = "Mistake Notebook (වරදවාගත් ප්‍රශ්න)",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.5.sp,
-                    color = Color.White
-                  )
-                  Spacer(modifier = Modifier.width(6.dp))
-                  Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFFDC2626)
-                  ) {
-                    Text(
-                      text = "REVISION",
-                      fontSize = 8.5.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color.White,
-                      modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                    )
-                  }
-                }
-                Text(
-                  text = "Mock Exams සහ Quizzes වල වැරදුණු ප්‍රශ්න ඉලක්කගතව පුහුණු වන්න",
-                  fontSize = 10.sp,
-                  color = Color(0xFF94A3B8),
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-              }
+            Text("⚠️", fontSize = 10.sp)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+              text = "වරදවාගත් ප්‍රශ්න",
+              fontWeight = FontWeight.Bold,
+              fontSize = 10.sp,
+              color = Color.White
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Surface(
+              shape = RoundedCornerShape(8.dp),
+              color = Color(0xFFDC2626)
+            ) {
+              Text(
+                text = "200",
+                fontSize = 8.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+              )
             }
-
+            Spacer(modifier = Modifier.width(3.dp))
             Icon(
               imageVector = Icons.AutoMirrored.Filled.ArrowForward,
               contentDescription = "Open",
-              tint = Color(0xFFE2E8F0),
-              modifier = Modifier.size(18.dp)
+              tint = Color(0xFF94A3B8),
+              modifier = Modifier.size(11.dp)
             )
           }
         }
@@ -612,14 +610,7 @@ fun GradesHomeScreen(
       }
     }
 
-    // Grid of Grade Cards
-    availableGradesList.forEach { item ->
-      GradeBannerCard(
-        gradeInfo = item,
-        onClick = { onGradeSelected(item.grade) }
-      )
-    }
-
+    // SECTION REMOVED AS REQUESTED: සාමාන්‍ය පෙළ ශ්‍රේණි අනුව විෂයන් (10 සහ 11 ශ්‍රේණි)
     Spacer(modifier = Modifier.height(10.dp))
   }
 }
@@ -1453,6 +1444,7 @@ fun SubjectContentScreen(
   onOpenScience500AutoCheck: () -> Unit = {},
   onOpenEnglishShortNotesAutoCheck: () -> Unit = {},
   onOpenGeographyAutoCheck: () -> Unit = {},
+  onOpenMathShortNotesAutoCheck: () -> Unit = {},
   onOpenSpecialMasterFeatures: (SpecialFeatureSection?) -> Unit = {},
   onOpenGrade10TermTestPortal: (Grade10WebSource) -> Unit = {},
   onOpenGrade11TermTestPortal: (Grade11WebSource, String?, Int?) -> Unit = { _, _, _ -> },
@@ -1479,7 +1471,7 @@ fun SubjectContentScreen(
     papersList.filter { isMatchSubject(it.subject, it.titleSinhala, subject) }
   }
   val activePdfUrl = remember(subjectNotes) {
-    subjectNotes.firstOrNull()?.pdfUri ?: "https://drive.google.com/file/d/1sample_100page_notes/preview"
+    subjectNotes.firstOrNull()?.pdfUri ?: "https://drive.google.com/file/d/1V3y65z_15X6zjruQ_I11WhG4EOfDHGm-/preview"
   }
 
   // Confirmation Dialog for Admin PDF/Note/Paper Deletion
@@ -1844,6 +1836,8 @@ fun SubjectContentScreen(
           SubjectSpecialInfo(SpecialFeatureSection.ENGLISH_WRITING_VAULT, "O/L English Writing Vault & Irregular Verbs", "Notices, Formal Letters, Charts & Verbs", "✍️", Color(0xFF0284C7))
         subject.nameSinhala.contains("ඉතිහාසය") ->
           SubjectSpecialInfo(SpecialFeatureSection.HISTORY_TIMELINE_MAPS, "ඓතිහාසික කාල රේඛාව සහ සිතියම් සලකුණු", "Prehistoric to Modern Eras & Map Practice", "🏛️", Color(0xFFD97706))
+        subject.nameSinhala.contains("ගණිත") || subject.name.contains("Math", ignoreCase = true) ->
+          SubjectSpecialInfo(SpecialFeatureSection.OL_100_SUBJECT_TOOLS, "10 & 11 ගණිතය කෙටි සටහන් (ඒකක 42)", "Sandu Theory 42 Units, Formulas & Solutions", "📐", Color(0xFF0284C7))
         subject.nameSinhala.contains("භූගෝල") ->
           SubjectSpecialInfo(SpecialFeatureSection.GEOGRAPHY_TOPOMAPS, "1:50,000 භූ ලක්ෂණ සිතියම් & ලෝක කලාප", "Contour Lines, Drainage & World Regions", "🗺️", Color(0xFF059669))
         subject.nameSinhala.contains("ව්‍යාපාර") || subject.nameSinhala.contains("ගිණුම්") || subject.nameSinhala.contains("වාණිජ") ->
@@ -1860,7 +1854,13 @@ fun SubjectContentScreen(
     }
 
     Surface(
-      onClick = { onOpenSpecialMasterFeatures(specInfo.section) },
+      onClick = {
+        if (subject.nameSinhala.contains("ගණිත") || subject.name.contains("Math", ignoreCase = true)) {
+          onOpenMathShortNotesAutoCheck()
+        } else {
+          onOpenSpecialMasterFeatures(specInfo.section)
+        }
+      },
       shape = RoundedCornerShape(10.dp),
       color = Color(0xFF0F172A),
       border = BorderStroke(1.2.dp, specInfo.color),
@@ -2309,6 +2309,94 @@ fun SubjectContentScreen(
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
               ) {
                 Text("මුල් PDF බලන්න", fontSize = 11.sp)
+              }
+            }
+          }
+        }
+      }
+
+      // Grade 10 & 11 Mathematics Short Notes (Sandu Theory 42 Units) Banner for Maths Subject
+      if (subject.nameSinhala.contains("ගණිත") || subject.name.contains("Math", ignoreCase = true) || subject.id.contains("math")) {
+        Card(
+          shape = RoundedCornerShape(12.dp),
+          colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onOpenMathShortNotesAutoCheck() }
+            .testTag("math_short_notes_subject_banner")
+        ) {
+          Column(modifier = Modifier.padding(10.dp)) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
+              ) {
+                Text("📐", fontSize = 16.sp)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                  text = "10 & 11 ගණිතය කෙටි සටහන් (ඒකක 42)",
+                  color = Color.White,
+                  fontSize = 13.sp,
+                  fontWeight = FontWeight.Bold,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis
+                )
+              }
+              Spacer(modifier = Modifier.width(6.dp))
+              Surface(
+                color = Color(0xFF38BDF8),
+                shape = RoundedCornerShape(4.dp)
+              ) {
+                Text(
+                  text = "SANDU THEORY",
+                  color = Color(0xFF0F172A),
+                  fontSize = 8.5.sp,
+                  fontWeight = FontWeight.ExtraBold,
+                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                  maxLines = 1
+                )
+              }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+              text = "සියලු සූත්‍ර • පියවරෙන් පියවර විසඳූ ගැටලු • 1-42 සියලු ඒකක වල නිල පිළිතුරු & සූත්‍ර ගණක.",
+              color = Color(0xFFBAE6FD),
+              fontSize = 11.sp,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              Button(
+                onClick = onOpenMathShortNotesAutoCheck,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+              ) {
+                Text("කෙටි සටහන් & විසඳුම් විවරණ", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+              }
+              OutlinedButton(
+                onClick = {
+                  onPdfClick(
+                    "10 හා 11 ශ්‍රේණි ගණිතය කෙටි සටහන් (Sandu Theory ඒකක 42)",
+                    "https://drive.google.com/file/d/1V3y65z_15X6zjruQ_I11WhG4EOfDHGm-/preview",
+                    false,
+                    null
+                  )
+                },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+              ) {
+                Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("PDF (පිටු 100)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
               }
             }
           }

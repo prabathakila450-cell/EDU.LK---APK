@@ -1065,14 +1065,22 @@ fun EnglishMasterClassScreen(
       }
     }
 
-    // Vertically Stacked Sub-Sections (Accordion Style)
-    LazyColumn(
+    // Vertically Stacked Sub-Sections (Accordion Style - Centered & Compact Width)
+    Box(
       modifier = Modifier
         .fillMaxSize()
-        .padding(horizontal = 14.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
-      contentPadding = PaddingValues(top = 14.dp, bottom = 40.dp)
+        .weight(1f),
+      contentAlignment = Alignment.TopCenter
     ) {
+      LazyColumn(
+        modifier = Modifier
+          .fillMaxWidth()
+          .widthIn(max = 345.dp)
+          .padding(horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(top = 10.dp, bottom = 40.dp)
+      ) {
 
       // =========================================================================
       // TOP FEATURE BANNER: 09/10/11 ENGLISH SHORT NOTES (COMPACT & REDUCED WIDTH)
@@ -2797,6 +2805,7 @@ fun EnglishMasterClassScreen(
         }
       }
     }
+    }
   }
 }
 
@@ -2813,14 +2822,20 @@ fun EnglishSectionCard(
   onToggle: () -> Unit,
   expandedContent: @Composable () -> Unit
 ) {
-  Card(
-    shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    border = BorderStroke(1.5.dp, badgeColor.copy(alpha = 0.5f)),
-    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-    modifier = Modifier.fillMaxWidth()
+  Box(
+    modifier = Modifier.fillMaxWidth(),
+    contentAlignment = Alignment.Center
   ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Card(
+      shape = RoundedCornerShape(16.dp),
+      colors = CardDefaults.cardColors(containerColor = Color.White),
+      border = BorderStroke(1.2.dp, badgeColor.copy(alpha = 0.5f)),
+      elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+      modifier = Modifier
+        .fillMaxWidth(0.92f)
+        .widthIn(max = 330.dp)
+    ) {
+      Column(modifier = Modifier.fillMaxWidth()) {
       Box(
         modifier = Modifier
           .fillMaxWidth()
@@ -2924,4 +2939,5 @@ fun EnglishSectionCard(
       }
     }
   }
+}
 }

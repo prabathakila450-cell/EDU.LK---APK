@@ -521,17 +521,21 @@ object VoiceDoubtSolverRepository {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceDoubtSolverScreen(
-  initialGrade: String = "11",
+  initialGrade: String = "10",
   onBack: () -> Unit
 ) {
   val context = LocalContext.current
   val clipboard = LocalClipboardManager.current
   val coroutineScope = rememberCoroutineScope()
 
-  var selectedGrade by remember { mutableStateOf(initialGrade) }
+  var selectedGrade by remember {
+    mutableStateOf(if (initialGrade in listOf("10", "11")) initialGrade else "10")
+  }
   var selectedSubjectFilter by remember { mutableStateOf("සියල්ල") }
   var doubtQueryInput by remember { mutableStateOf("") }
   var isSpeechRecognizerListening by remember { mutableStateOf(false) }
+  var lessonSearchQuery by remember { mutableStateOf("") }
+  var isBookmarked by remember { mutableStateOf(false) }
 
   // Active Doubt State
   var activeDoubt by remember { mutableStateOf(VoiceDoubtSolverRepository.curatedDoubts.first()) }
@@ -548,7 +552,6 @@ fun VoiceDoubtSolverScreen(
     tts = TextToSpeech(context) { status ->
       if (status == TextToSpeech.SUCCESS) {
         ttsInitSuccess = true
-        // Try setting Sinhala if available, fallback to Locale.getDefault()
         val siLocale = Locale("si", "LK")
         val res = tts?.setLanguage(siLocale)
         if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
@@ -587,6 +590,16 @@ fun VoiceDoubtSolverScreen(
     isSpeaking = false
   }
 
+  fun replaySpeaking() {
+    ttsEngine?.stop()
+    isSpeaking = false
+    ttsEngine?.setSpeechRate(speechSpeed)
+    val params = Bundle()
+    ttsEngine?.speak(activeDoubt.detailedVoiceExplanation, TextToSpeech.QUEUE_FLUSH, params, "DOUBT_VOICE_REPLAY_${System.currentTimeMillis()}")
+    isSpeaking = true
+    Toast.makeText(context, "🔄 නැවත මුල සිට කියවීම ආරම්භ විය", Toast.LENGTH_SHORT).show()
+  }
+
   // Filtered curated doubts
   val filteredDoubts = remember(selectedGrade, selectedSubjectFilter) {
     VoiceDoubtSolverRepository.curatedDoubts.filter { item ->
@@ -600,6 +613,21 @@ fun VoiceDoubtSolverScreen(
     SyllabusUnitsRepository.getUnitsFor(selectedGrade, selectedSubjectFilter)
   }
 
+  // Search filtered units
+  val displayedUnits = remember(syllabusUnits, lessonSearchQuery) {
+    if (lessonSearchQuery.isBlank()) {
+      syllabusUnits
+    } else {
+      val q = lessonSearchQuery.trim().lowercase()
+      syllabusUnits.filter { u ->
+        u.titleSinhala.lowercase().contains(q) ||
+          u.englishTitle.lowercase().contains(q) ||
+          u.subject.lowercase().contains(q) ||
+          u.keyConcepts.any { it.lowercase().contains(q) }
+      }
+    }
+  }
+
   val subjectsList = listOf(
     "සියල්ල",
     "ගණිතය",
@@ -608,10 +636,45 @@ fun VoiceDoubtSolverScreen(
     "සිංහල",
     "ඉංග්‍රීසි",
     "ICT",
-    "ව්‍යාපාර හා ගිණුම්කරණය",
     "බුද්ධ ධර්මය",
     "භූගෝල විද්‍යාව",
-    "පුරවැසි අධ්‍යාපනය"
+    "පුරවැසි අධ්‍යාපනය",
+    "ව්‍යාපාර හා ගිණුම්කරණය",
+    "සෞඛ්‍යය"
+  )
+
+  val gradesList = listOf("10", "11")
+
+  // Animated pulse for mic
+  val infiniteTransition = rememberInfiniteTransition(label = "mic_transition")
+  val micScale by infiniteTransition.animateFloat(
+    initialValue = 1.0f,
+    targetValue = if (isSpeechRecognizerListening) 1.15f else 1.0f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(600, easing = FastOutSlowInEasing),
+      repeatMode = RepeatMode.Reverse
+    ),
+    label = "mic_scale"
+  )
+
+  // Equalizer bar heights
+  val eqBar1 by infiniteTransition.animateFloat(
+    initialValue = 6f,
+    targetValue = if (isSpeaking) 22f else 6f,
+    animationSpec = infiniteRepeatable(tween(350, easing = LinearEasing), RepeatMode.Reverse),
+    label = "eq1"
+  )
+  val eqBar2 by infiniteTransition.animateFloat(
+    initialValue = 10f,
+    targetValue = if (isSpeaking) 26f else 10f,
+    animationSpec = infiniteRepeatable(tween(250, easing = LinearEasing), RepeatMode.Reverse),
+    label = "eq2"
+  )
+  val eqBar3 by infiniteTransition.animateFloat(
+    initialValue = 8f,
+    targetValue = if (isSpeaking) 20f else 8f,
+    animationSpec = infiniteRepeatable(tween(400, easing = LinearEasing), RepeatMode.Reverse),
+    label = "eq3"
   )
 
   Scaffold(
@@ -626,7 +689,7 @@ fun VoiceDoubtSolverScreen(
               color = Color.White
             )
             Text(
-              text = "9 • 10 • 11 ශ්‍රේණි • සියලු විෂයයන් • අසීමිත හඬින් පැහැදිලි කිරීම්",
+              text = "10, 11 ශ්‍රේණි (O/L) • සියලු විෂයයන් • 100% නිවැරදි විෂය නිර්දේශය",
               fontSize = 10.sp,
               color = Color(0xFFBAE6FD)
             )
@@ -660,1123 +723,1128 @@ fun VoiceDoubtSolverScreen(
         )
       )
     },
-    containerColor = Color(0xFFF8FAFC)
+    containerColor = Color(0xFFF1F5F9)
   ) { innerPadding ->
-    LazyColumn(
+    Box(
       modifier = Modifier
         .fillMaxSize()
         .padding(innerPadding)
-        .padding(horizontal = 14.dp, vertical = 8.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp)
+        .background(Color(0xFFF1F5F9)),
+      contentAlignment = Alignment.TopCenter
     ) {
-      // 1. HERO BANNER: AI VOICE TUTOR EXPLANATION
-      item {
-        Card(
-          shape = RoundedCornerShape(18.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-          elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Box(
+      LazyColumn(
+        modifier = Modifier
+          .fillMaxWidth()
+          .widthIn(max = 350.dp)
+          .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+      ) {
+
+        // =====================================================================
+        // 1. HIGHEST PRIORITY (TOP): ASK BY VOICE OR TYPE QUESTION
+        // =====================================================================
+        item {
+          Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.2.dp, Color(0xFFCBD5E1)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             modifier = Modifier
               .fillMaxWidth()
-              .background(
-                Brush.linearGradient(
-                  colors = listOf(
-                    Color(0xFF091E3A),
-                    Color(0xFF1E1B4B),
-                    Color(0xFF2563EB)
-                  )
-                )
-              )
-              .padding(16.dp)
+              .widthIn(max = 336.dp)
+              .testTag("doubt_input_card")
           ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+              modifier = Modifier.padding(13.dp),
+              verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
               Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
               ) {
-                Surface(
-                  shape = RoundedCornerShape(20.dp),
-                  color = Color(0xFF38BDF8).copy(alpha = 0.25f),
-                  border = BorderStroke(1.dp, Color(0xFF38BDF8))
-                ) {
-                  Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Box(
+                    modifier = Modifier
+                      .size(28.dp)
+                      .clip(CircleShape)
+                      .background(Color(0xFF0284C7)),
+                    contentAlignment = Alignment.Center
                   ) {
-                    Text("💡", fontSize = 11.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                      text = "24/7 හඬින් උගන්වන AI ගුරුභවතා",
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color(0xFFBAE6FD)
-                    )
+                    Text("🎙️", fontSize = 14.sp)
                   }
-                }
-
-                Surface(
-                  shape = RoundedCornerShape(6.dp),
-                  color = if (isSpeaking) Color(0xFFEF4444) else Color(0xFF10B981)
-                ) {
-                  Row(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                  ) {
-                    Box(
-                      modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                      text = if (isSpeaking) "හඬින් කියවයි..." else "හඬ සක්‍රියයි",
-                      fontSize = 9.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color.White
-                    )
-                  }
-                }
-              }
-
-              Text(
-                text = "ඔබට නොතේරෙන ඕනෑම විෂය ගැටලුවක් මෙහි ලියන්න හෝ හඬින් කියන්න!",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White
-              )
-
-              Text(
-                text = "9, 10 සහ 11 ශ්‍රේණිවල සියලුම විෂයන් සහ ඒකක ආවරණය කර ඇත. ගැටලුව විමසූ සැනින් පියවරෙන් පියවර පැහැදිලි කටහඬක් මගින් ශ්‍රවණය කරන්න.",
-                fontSize = 11.sp,
-                color = Color(0xFFE2E8F0),
-                lineHeight = 16.sp
-              )
-            }
-          }
-        }
-      }
-
-      // 2. GRADE SELECTION: 9 / 10 / 11 ශ්‍රේණි තේරීම
-      item {
-        Card(
-          shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.2.dp, Color(0xFFCBD5E1)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-          modifier = Modifier.fillMaxWidth().testTag("grade_selector_card")
-        ) {
-          Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-          ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("🎓", fontSize = 16.sp)
-                Spacer(modifier = Modifier.width(6.dp))
-                Column {
-                  Text(
-                    text = "ශ්‍රේණිය තෝරන්න (Select Grade)",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                  )
-                  Text(
-                    text = "10 හෝ 11 ශ්‍රේණිය තෝරා විෂය ඒකක අධ්‍යයනය කරන්න",
-                    fontSize = 10.sp,
-                    color = Color(0xFF64748B)
-                  )
-                }
-              }
-
-              Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Color(0xFFECFDF5),
-                border = BorderStroke(1.dp, Color(0xFF6EE7B7))
-              ) {
-                Text(
-                  text = "අන්ලිමිටඩ් ⚡",
-                  fontSize = 9.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = Color(0xFF047857),
-                  modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-                )
-              }
-            }
-
-            // Grade Buttons (10 & 11)
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-              listOf(
-                Triple("10", "10 ශ්‍රේණිය", "Grade 10"),
-                Triple("11", "11 ශ්‍රේණිය (O/L)", "Grade 11 Exam")
-              ).forEach { (gVal, gLabel, gSub) ->
-                val isSelected = selectedGrade == gVal
-                Surface(
-                  onClick = {
-                    selectedGrade = gVal
-                    val units = SyllabusUnitsRepository.getUnitsFor(gVal, selectedSubjectFilter)
-                    if (units.isNotEmpty()) {
-                      activeDoubt = VoiceDoubtSolverRepository.fromUnit(units.first())
-                    }
-                  },
-                  shape = RoundedCornerShape(12.dp),
-                  color = if (isSelected) Color(0xFF0284C7) else Color(0xFFF1F5F9),
-                  border = BorderStroke(
-                    width = if (isSelected) 2.dp else 1.dp,
-                    color = if (isSelected) Color(0xFF0369A1) else Color(0xFFCBD5E1)
-                  ),
-                  modifier = Modifier.weight(1f).testTag("grade_btn_$gVal")
-                ) {
-                  Column(
-                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                  ) {
-                    Text(
-                      text = gLabel,
-                      fontSize = 12.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = if (isSelected) Color.White else Color(0xFF1E293B),
-                      textAlign = TextAlign.Center
-                    )
-                    Text(
-                      text = gSub,
-                      fontSize = 9.sp,
-                      color = if (isSelected) Color(0xFFE0F2FE) else Color(0xFF64748B),
-                      textAlign = TextAlign.Center
-                    )
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // 3. SUBJECT SELECTION ROW (ඒ ඒ විෂය තෝරාගැනීම)
-      item {
-        Card(
-          shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.2.dp, Color(0xFFE2E8F0)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-          modifier = Modifier.fillMaxWidth().testTag("subject_selector_card")
-        ) {
-          Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-          ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("📚", fontSize = 14.sp)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                  text = "විෂය තෝරන්න (Select Subject)",
-                  fontSize = 12.5.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = Color(0xFF0F172A)
-                )
-              }
-              Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFFEFF6FF),
-                border = BorderStroke(1.dp, Color(0xFFBFDBFE))
-              ) {
-                Text(
-                  text = "${syllabusUnits.size} ඒකක",
-                  fontSize = 9.5.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = Color(0xFF1D4ED8),
-                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-              }
-            }
-
-            LazyRow(
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-              modifier = Modifier.fillMaxWidth()
-            ) {
-              items(subjectsList) { subj ->
-                val isSelected = selectedSubjectFilter == subj
-                val icon = when (subj) {
-                  "සියල්ල" -> "🌐"
-                  "ගණිතය" -> "📐"
-                  "විද්‍යාව" -> "🔬"
-                  "ඉතිහාසය" -> "📜"
-                  "සිංහල" -> "✍️"
-                  "ඉංග්‍රීසි" -> "🔤"
-                  "ICT" -> "💻"
-                  "ව්‍යාපාර හා ගිණුම්කරණය" -> "📊"
-                  "බුද්ධ ධර්මය" -> "☸️"
-                  "භූගෝල විද්‍යාව" -> "🌍"
-                  "පුරවැසි අධ්‍යාපනය" -> "🏛️"
-                  else -> "📘"
-                }
-
-                FilterChip(
-                  selected = isSelected,
-                  onClick = {
-                    selectedSubjectFilter = subj
-                    val units = SyllabusUnitsRepository.getUnitsFor(selectedGrade, subj)
-                    if (units.isNotEmpty()) {
-                      activeDoubt = VoiceDoubtSolverRepository.fromUnit(units.first())
-                    }
-                  },
-                  label = {
-                    Text(
-                      text = "$icon $subj",
-                      fontSize = 11.sp,
-                      fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                    )
-                  },
-                  colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = Color(0xFF0284C7),
-                    selectedLabelColor = Color.White
-                  )
-                )
-              }
-            }
-          }
-        }
-      }
-
-      // 4. UNLIMITED ACCESS GUARANTEE BANNER
-      item {
-        Surface(
-          shape = RoundedCornerShape(12.dp),
-          color = Color(0xFF0F172A),
-          border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.4f)),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Box(
-              modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF38BDF8).copy(alpha = 0.2f)),
-              contentAlignment = Alignment.Center
-            ) {
-              Text("♾️", fontSize = 16.sp)
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-              Text(
-                text = "අසීමිත භාවිතය (Unlimited Access) සක්‍රියයි",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF38BDF8)
-              )
-              Text(
-                text = "9, 10, 11 ශ්‍රේණිවල සියලු විෂයන් සහ ඒකක ආවරණය කර ඇත. කිසිදු දෛනික සීමාවක් හෝ ගාස්තුවක් නැත.",
-                fontSize = 10.sp,
-                color = Color(0xFFCBD5E1),
-                lineHeight = 14.sp
-              )
-            }
-          }
-        }
-      }
-
-      // 5. SYLLABUS UNITS EXPLORER: ඒ ඒ ශ්‍රේණියට සහ විෂයට අදාළ සියලුම පාඩම් & ඒකක
-      item {
-        Card(
-          shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.2.dp, Color(0xFFE2E8F0)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-          modifier = Modifier.fillMaxWidth().testTag("syllabus_units_card")
-        ) {
-          Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-          ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Column {
-                Text(
-                  text = "📖 $selectedGrade ශ්‍රේණිය ${if (selectedSubjectFilter != "සියල්ල") "- $selectedSubjectFilter" else ""} පාඩම් (${syllabusUnits.size})",
-                  fontSize = 13.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = Color(0xFF0F172A)
-                )
-                Text(
-                  text = "ඕනෑම පාඩමක් තෝරා සම්පූර්ණ සංකල්පය හඬින් අසන්න",
-                  fontSize = 10.sp,
-                  color = Color(0xFF64748B)
-                )
-              }
-
-              Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFFF0FDF4),
-                border = BorderStroke(1.dp, Color(0xFF86EFAC))
-              ) {
-                Text(
-                  text = "100% ආවරණය",
-                  fontSize = 9.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = Color(0xFF166534),
-                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-              }
-            }
-
-            // Units List
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              syllabusUnits.take(8).forEach { unit ->
-                val isSelectedUnit = activeDoubt.id == "unit_${unit.id}"
-                Surface(
-                  shape = RoundedCornerShape(12.dp),
-                  color = if (isSelectedUnit) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
-                  border = BorderStroke(
-                    width = if (isSelectedUnit) 1.5.dp else 1.dp,
-                    color = if (isSelectedUnit) Color(0xFF38BDF8) else Color(0xFFE2E8F0)
-                  ),
-                  modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                      activeDoubt = VoiceDoubtSolverRepository.fromUnit(unit)
-                      speakExplanation(activeDoubt.detailedVoiceExplanation)
-                    }
-                ) {
-                  Row(
-                    modifier = Modifier.padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                  ) {
-                    Box(
-                      modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(if (isSelectedUnit && isSpeaking) Color(0xFFEF4444) else Color(0xFF0284C7)),
-                      contentAlignment = Alignment.Center
-                    ) {
-                      Icon(
-                        imageVector = if (isSelectedUnit && isSpeaking) Icons.Default.GraphicEq else Icons.Default.VolumeUp,
-                        contentDescription = "Listen",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                      )
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                      Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                          shape = RoundedCornerShape(4.dp),
-                          color = Color(0xFFE0F2FE)
-                        ) {
-                          Text(
-                            text = "${unit.subject} • ඒකකය ${unit.unitNumber}",
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0369A1),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                          )
-                        }
-                      }
-
-                      Spacer(modifier = Modifier.height(2.dp))
-
-                      Text(
-                        text = unit.titleSinhala,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                      )
-
-                      Text(
-                        text = unit.englishTitle,
-                        fontSize = 9.5.sp,
-                        color = Color(0xFF64748B),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                      )
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    Button(
-                      onClick = {
-                        activeDoubt = VoiceDoubtSolverRepository.fromUnit(unit)
-                        speakExplanation(activeDoubt.detailedVoiceExplanation)
-                      },
-                      shape = RoundedCornerShape(8.dp),
-                      colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isSelectedUnit && isSpeaking) Color(0xFFEF4444) else Color(0xFF0284C7)
-                      ),
-                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                      modifier = Modifier.height(30.dp)
-                    ) {
-                      Text(
-                        text = if (isSelectedUnit && isSpeaking) "විරාමය" else "විසඳුම & හඬ",
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold
-                      )
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // 6. INPUT BOX: ASK DOUBT (VOICE / TEXT)
-      item {
-        Card(
-          shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.2.dp, Color(0xFFCBD5E1)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-          modifier = Modifier.fillMaxWidth().testTag("doubt_input_card")
-        ) {
-          Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-          ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("✍️", fontSize = 14.sp)
-                Spacer(modifier = Modifier.width(6.dp))
-                Column {
-                  Text(
-                    text = "ඔබේ ගැටලුව විමසන්න (Ask Any Doubt)",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                  )
-                  Text(
-                    text = "අන්ලිමිටඩ් විමසුම් • හඬින් හෝ අකුරින් ප්‍රශ්න කරන්න",
-                    fontSize = 10.sp,
-                    color = Color(0xFF64748B)
-                  )
-                }
-              }
-
-              // Clear button
-              if (doubtQueryInput.isNotEmpty()) {
-                Text(
-                  text = "මකන්න",
-                  fontSize = 11.sp,
-                  color = Color(0xFFEF4444),
-                  fontWeight = FontWeight.Bold,
-                  modifier = Modifier.clickable { doubtQueryInput = "" }
-                )
-              }
-            }
-
-            // Quick Prompt Suggestion Chips
-            LazyRow(
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-              modifier = Modifier.fillMaxWidth()
-            ) {
-              val quickPrompts = listOf(
-                "📐 මූලික සූත්‍ර හා නීති මොනවාද?",
-                "🎯 විභාගයේදී ලකුණු ගන්නා ක්‍රම",
-                "📝 පියවරෙන් පියවර විසඳුම",
-                "❓ විභාගයට නිතර එන ප්‍රශ්න",
-                "🔬 විද්‍යාත්මක සිද්ධාන්තය කුමක්ද?"
-              )
-              items(quickPrompts) { prompt ->
-                Surface(
-                  onClick = {
-                    doubtQueryInput = prompt
-                    activeDoubt = VoiceDoubtSolverRepository.resolveDoubt(prompt, selectedGrade, selectedSubjectFilter)
-                    speakExplanation(activeDoubt.detailedVoiceExplanation)
-                  },
-                  shape = RoundedCornerShape(8.dp),
-                  color = Color(0xFFF1F5F9),
-                  border = BorderStroke(1.dp, Color(0xFFCBD5E1))
-                ) {
-                  Text(
-                    text = prompt,
-                    fontSize = 10.sp,
-                    color = Color(0xFF334155),
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                  )
-                }
-              }
-            }
-
-            OutlinedTextField(
-              value = doubtQueryInput,
-              onValueChange = { doubtQueryInput = it },
-              placeholder = {
-                Text(
-                  text = "උදා: 'ප්‍රභාසංස්ලේෂණය තේරුම් කර දෙන්න', 'වර්ගජ සමීකරණ සූත්‍රය'... හෝ ඕනෑම ප්‍රශ්නයක්",
-                  fontSize = 11.5.sp,
-                  color = Color(0xFF94A3B8)
-                )
-              },
-              shape = RoundedCornerShape(12.dp),
-              modifier = Modifier
-                .fillMaxWidth()
-                .testTag("doubt_text_field"),
-              minLines = 2,
-              maxLines = 4
-            )
-
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              // Animated Glowing Voice Button
-              val infiniteTransition = rememberInfiniteTransition(label = "mic_wave")
-              val micScale by infiniteTransition.animateFloat(
-                initialValue = 1.0f,
-                targetValue = if (isSpeechRecognizerListening) 1.2f else 1.0f,
-                animationSpec = infiniteRepeatable(
-                  animation = tween(600, easing = FastOutSlowInEasing),
-                  repeatMode = RepeatMode.Reverse
-                ),
-                label = "mic_scale"
-              )
-
-              Button(
-                onClick = {
-                  isSpeechRecognizerListening = !isSpeechRecognizerListening
-                  if (isSpeechRecognizerListening) {
-                    Toast.makeText(context, "🎙️ සවන්දෙමින් පවතී... ප්‍රශ්නය පවසන්න", Toast.LENGTH_SHORT).show()
-                    coroutineScope.launch {
-                      delay(1800)
-                      val sampleDoubts = listOf(
-                        "ප්‍රභාසංස්ලේෂණයේ ආලෝක සහ අඳුරු ප්‍රතික්‍රියා අතර වෙනස කුමක්ද?",
-                        "වර්ගජ සමීකරණ සූත්‍රය මගින් විසඳන්නේ කෙසේද?",
-                        "නිව්ටන්ගේ දෙවන චලිත නියමය සහ F = ma සූත්‍රය යොදන්නේ කෙසේද?",
-                        "පැරණි ලක්දිව වාරි ශිෂ්ටාචාරයේ බිසෝකොටුවේ තාක්ෂණික විශිෂ්ටත්වය කුමක්ද?",
-                        "AND සහ OR තර්ක ද්වාරවල සත්‍යතා වගු මතක තබාගන්නේ කෙසේද?"
-                      )
-                      val picked = sampleDoubts.random()
-                      doubtQueryInput = picked
-                      isSpeechRecognizerListening = false
-                      // Resolve and speak
-                      activeDoubt = VoiceDoubtSolverRepository.resolveDoubt(picked, selectedGrade, selectedSubjectFilter)
-                      speakExplanation(activeDoubt.detailedVoiceExplanation)
-                      Toast.makeText(context, "🎙️ හඬ හඳුනාගැනීම සාර්ථකයි! ශ්‍රව්‍ය පැහැදිලි කිරීම ආරම්භ වේ.", Toast.LENGTH_SHORT).show()
-                    }
-                  }
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                  containerColor = if (isSpeechRecognizerListening) Color(0xFFEF4444) else Color(0xFF0284C7)
-                ),
-                modifier = Modifier
-                  .weight(1f)
-                  .scale(micScale)
-                  .testTag("voice_ask_mic_button")
-              ) {
-                Icon(
-                  imageVector = if (isSpeechRecognizerListening) Icons.Default.GraphicEq else Icons.Default.Mic,
-                  contentDescription = "Voice Input",
-                  modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                  text = if (isSpeechRecognizerListening) "සවන්දෙයි..." else "හඬින් විමසන්න",
-                  fontSize = 11.5.sp,
-                  fontWeight = FontWeight.Bold
-                )
-              }
-
-              // Submit Text Doubt Button
-              Button(
-                onClick = {
-                  if (doubtQueryInput.isNotBlank()) {
-                    activeDoubt = VoiceDoubtSolverRepository.resolveDoubt(doubtQueryInput, selectedGrade, selectedSubjectFilter)
-                    speakExplanation(activeDoubt.detailedVoiceExplanation)
-                  } else {
-                    Toast.makeText(context, "කරුණාකර ඔබේ ගැටලුව ලියන්න හෝ මයික්‍රෆෝනය ඔබන්න", Toast.LENGTH_SHORT).show()
-                  }
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                modifier = Modifier.weight(1f).testTag("submit_doubt_btn")
-              ) {
-                Icon(Icons.Default.Send, contentDescription = "Submit", modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                  text = "විසඳුම & හඬ ගන්න",
-                  fontSize = 11.5.sp,
-                  fontWeight = FontWeight.Bold
-                )
-              }
-            }
-          }
-        }
-      }
-
-      // 3. ACTIVE SOLVED DOUBT CARD WITH DEDICATED VOICE PLAYER CONTROLLER
-      item {
-        Card(
-          shape = RoundedCornerShape(18.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.5.dp, Color(0xFF38BDF8)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-          modifier = Modifier.fillMaxWidth().testTag("active_doubt_voice_card")
-        ) {
-          Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-          ) {
-            // Header with Badges
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                  shape = RoundedCornerShape(6.dp),
-                  color = Color(0xFFEFF6FF),
-                  border = BorderStroke(1.dp, Color(0xFF93C5FD))
-                ) {
-                  Text(
-                    text = activeDoubt.subject,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1D4ED8),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                  )
-                }
-                Spacer(modifier = Modifier.width(6.dp))
-                Surface(
-                  shape = RoundedCornerShape(6.dp),
-                  color = Color(0xFFF1F5F9)
-                ) {
-                  Text(
-                    text = activeDoubt.relatedTopic,
-                    fontSize = 9.5.sp,
-                    color = Color(0xFF475569),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                  )
-                }
-              }
-
-              // Copy button
-              IconButton(
-                onClick = {
-                  clipboard.setText(AnnotatedString("${activeDoubt.questionSinhala}\n\n${activeDoubt.detailedVoiceExplanation}"))
-                  Toast.makeText(context, "පැහැදිලි කිරීම පිටපත් විය!", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.size(32.dp)
-              ) {
-                Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = Color(0xFF64748B), modifier = Modifier.size(16.dp))
-              }
-            }
-
-            // Question Title
-            Text(
-              text = "❓ ${activeDoubt.questionSinhala}",
-              fontSize = 15.sp,
-              fontWeight = FontWeight.ExtraBold,
-              color = Color(0xFF0F172A),
-              lineHeight = 20.sp
-            )
-
-            // 🎧 COMPREHENSIVE VOICE AUDIO CONTROLLER BAR
-            Surface(
-              shape = RoundedCornerShape(14.dp),
-              color = Color(0xFF0F172A),
-              modifier = Modifier.fillMaxWidth()
-            ) {
-              Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-              ) {
-                Row(
-                  modifier = Modifier.fillMaxWidth(),
-                  horizontalArrangement = Arrangement.SpaceBetween,
-                  verticalAlignment = Alignment.CenterVertically
-                ) {
-                  Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                      modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(if (isSpeaking) Color(0xFFEF4444) else Color(0xFF10B981)),
-                      contentAlignment = Alignment.Center
-                    ) {
-                      Text("🔊", fontSize = 16.sp)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                      Text(
-                        text = if (isSpeaking) "හඬින් පැහැදිලි කරමින් පවතී..." else "සම්පූර්ණ පැහැදිලි කිරීම හඬින් අසන්න",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                      )
-                      Text(
-                        text = "Sinhala Voice TTS Synthesizer",
-                        fontSize = 9.sp,
-                        color = Color(0xFF94A3B8)
-                      )
-                    }
-                  }
-
-                  // Speed Chip
-                  Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF334155),
-                    modifier = Modifier.clickable {
-                      speechSpeed = when (speechSpeed) {
-                        0.75f -> 1.0f
-                        1.0f -> 1.25f
-                        1.25f -> 1.5f
-                        else -> 0.75f
-                      }
-                      if (isSpeaking) {
-                        ttsEngine?.setSpeechRate(speechSpeed)
-                      }
-                    }
-                  ) {
-                    Text(
-                      text = "${speechSpeed}x වේගය",
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color(0xFF38BDF8),
-                      modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                    )
-                  }
-                }
-
-                // Voice Action Buttons Row
-                Row(
-                  modifier = Modifier.fillMaxWidth(),
-                  horizontalArrangement = Arrangement.spacedBy(8.dp),
-                  verticalAlignment = Alignment.CenterVertically
-                ) {
-                  Button(
-                    onClick = {
-                      speakExplanation(activeDoubt.detailedVoiceExplanation)
-                    },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                      containerColor = if (isSpeaking) Color(0xFFEF4444) else Color(0xFF2563EB)
-                    ),
-                    modifier = Modifier.weight(1f).testTag("play_doubt_voice_btn")
-                  ) {
-                    Icon(
-                      imageVector = if (isSpeaking) Icons.Default.Pause else Icons.Default.PlayArrow,
-                      contentDescription = "Play/Pause",
-                      modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                      text = if (isSpeaking) "විරාමය (Pause)" else "හඬට සවන්දෙන්න",
-                      fontSize = 12.sp,
-                      fontWeight = FontWeight.Bold
-                    )
-                  }
-
-                  if (isSpeaking) {
-                    OutlinedButton(
-                      onClick = { stopSpeaking() },
-                      shape = RoundedCornerShape(10.dp),
-                      border = BorderStroke(1.dp, Color(0xFFEF4444)),
-                      colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444))
-                    ) {
-                      Icon(Icons.Default.Stop, contentDescription = "Stop", modifier = Modifier.size(16.dp))
-                      Spacer(modifier = Modifier.width(4.dp))
-                      Text("නවත්වන්න", fontSize = 11.sp)
-                    }
-                  }
-                }
-              }
-            }
-
-            // Summary Box
-            Surface(
-              shape = RoundedCornerShape(12.dp),
-              color = Color(0xFFF0FDF4),
-              border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
-              modifier = Modifier.fillMaxWidth()
-            ) {
-              Row(
-                modifier = Modifier.padding(10.dp),
-                verticalAlignment = Alignment.Top
-              ) {
-                Text("📌", fontSize = 14.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                  Text(
-                    text = "කෙටි සාරාංශය (Summary):",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF166534)
-                  )
-                  Text(
-                    text = activeDoubt.shortSummary,
-                    fontSize = 11.sp,
-                    color = Color(0xFF14532D),
-                    lineHeight = 16.sp
-                  )
-                }
-              }
-            }
-
-            // Step-By-Step Solution
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-              Text(
-                text = "📝 පියවරෙන් පියවර විස්තරාත්මක විසඳුම:",
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-              )
-
-              activeDoubt.stepByStepSolution.forEach { step ->
-                Surface(
-                  shape = RoundedCornerShape(8.dp),
-                  color = Color(0xFFF8FAFC),
-                  border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                  modifier = Modifier.fillMaxWidth()
-                ) {
-                  Text(
-                    text = step,
-                    fontSize = 11.sp,
-                    color = Color(0xFF334155),
-                    lineHeight = 16.sp,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                  )
-                }
-              }
-            }
-
-            // Core Formula or Rule
-            if (activeDoubt.coreFormulaOrRule.isNotBlank()) {
-              Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFFEFF6FF),
-                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
-                modifier = Modifier.fillMaxWidth()
-              ) {
-                Row(
-                  modifier = Modifier.padding(10.dp),
-                  verticalAlignment = Alignment.CenterVertically
-                ) {
-                  Text("📐", fontSize = 14.sp)
                   Spacer(modifier = Modifier.width(8.dp))
                   Column {
                     Text(
-                      text = "මූලික සූත්‍රය / නියමය:",
-                      fontSize = 10.sp,
+                      text = "ප්‍රශ්නයක් හඬින් හෝ ටයිප් කර අසන්න",
+                      fontSize = 12.5.sp,
                       fontWeight = FontWeight.Bold,
-                      color = Color(0xFF1E40AF)
+                      color = Color(0xFF0F172A)
                     )
                     Text(
-                      text = activeDoubt.coreFormulaOrRule,
-                      fontSize = 11.sp,
+                      text = "ඕනෑම ගැටලුවක් විමසා ක්ෂණික හඬ පිළිතුරු ලබාගන්න",
+                      fontSize = 9.5.sp,
+                      color = Color(0xFF64748B)
+                    )
+                  }
+                }
+
+                if (doubtQueryInput.isNotEmpty()) {
+                  Text(
+                    text = "මකන්න",
+                    fontSize = 11.sp,
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { doubtQueryInput = "" }
+                  )
+                }
+              }
+
+              // Text Field for Typing Question
+              OutlinedTextField(
+                value = doubtQueryInput,
+                onValueChange = { doubtQueryInput = it },
+                placeholder = {
+                  Text(
+                    text = "ඔබගේ ප්‍රශ්නය මෙහි ලියන්න හෝ හඬින් පවසන්න (උදා: ප්‍රභාසංස්ලේෂණය, වර්ගජ සමීකරණ)...",
+                    fontSize = 11.sp,
+                    color = Color(0xFF94A3B8)
+                  )
+                },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("doubt_text_field"),
+                minLines = 2,
+                maxLines = 3
+              )
+
+              // Quick Suggestions Row
+              LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                val quickPrompts = listOf(
+                  "📐 සූත්‍රය කුමක්ද?",
+                  "🎯 විභාග උපදෙස්",
+                  "📝 පියවරෙන් පියවර විසඳුම",
+                  "❓ විභාගයට එන ප්‍රශ්න",
+                  "🔬 මූලික සංකල්පය"
+                )
+                items(quickPrompts) { prompt ->
+                  Surface(
+                    onClick = {
+                      doubtQueryInput = prompt
+                      activeDoubt = VoiceDoubtSolverRepository.resolveDoubt(prompt, selectedGrade, selectedSubjectFilter)
+                      speakExplanation(activeDoubt.detailedVoiceExplanation)
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF1F5F9),
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                  ) {
+                    Text(
+                      text = prompt,
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.Medium,
+                      color = Color(0xFF334155),
+                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                  }
+                }
+              }
+
+              // Action Buttons Row: Mic & Submit
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                // Voice Mic Button
+                Button(
+                  onClick = {
+                    isSpeechRecognizerListening = !isSpeechRecognizerListening
+                    if (isSpeechRecognizerListening) {
+                      Toast.makeText(context, "🎙️ සවන්දෙමින් පවතී... ප්‍රශ්නය පවසන්න", Toast.LENGTH_SHORT).show()
+                      coroutineScope.launch {
+                        delay(1700)
+                        val sampleDoubts = listOf(
+                          "ප්‍රභාසංස්ලේෂණයේ ආලෝක සහ අඳුරු ප්‍රතික්‍රියා අතර වෙනස කුමක්ද?",
+                          "වර්ගජ සමීකරණ සූත්‍රය මගින් විසඳන්නේ කෙසේද?",
+                          "නිව්ටන්ගේ දෙවන චලිත නියමය සහ F = ma සූත්‍රය යොදන්නේ කෙසේද?",
+                          "පැරණි ලක්දිව වාරි ශිෂ්ටාචාරයේ බිසෝකොටුවේ තාක්ෂණික විශිෂ්ටත්වය කුමක්ද?",
+                          "AND සහ OR තර්ක ද්වාරවල සත්‍යතා වගු මතක තබාගන්නේ කෙසේද?",
+                          "Simple Present Tense සහ Continuous Tense අතර වෙනස කුමක්ද?",
+                          "අක්ෂර වින්‍යාසයේ ණ සහ න නීති මොනවාද?"
+                        )
+                        val picked = sampleDoubts.random()
+                        doubtQueryInput = picked
+                        isSpeechRecognizerListening = false
+                        activeDoubt = VoiceDoubtSolverRepository.resolveDoubt(picked, selectedGrade, selectedSubjectFilter)
+                        speakExplanation(activeDoubt.detailedVoiceExplanation)
+                        Toast.makeText(context, "🎙️ ප්‍රශ්නය හඳුනාගැනිණි! හඬින් පැහැදිලි කිරීම ඇරඹේ.", Toast.LENGTH_SHORT).show()
+                      }
+                    }
+                  },
+                  shape = RoundedCornerShape(10.dp),
+                  colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isSpeechRecognizerListening) Color(0xFFEF4444) else Color(0xFF0284C7)
+                  ),
+                  modifier = Modifier
+                    .weight(1f)
+                    .scale(micScale)
+                    .testTag("voice_ask_mic_button")
+                ) {
+                  Icon(
+                    imageVector = if (isSpeechRecognizerListening) Icons.Default.GraphicEq else Icons.Default.Mic,
+                    contentDescription = "Voice Input",
+                    modifier = Modifier.size(16.dp)
+                  )
+                  Spacer(modifier = Modifier.width(5.dp))
+                  Text(
+                    text = if (isSpeechRecognizerListening) "සවන්දෙයි..." else "හඬින් විමසන්න",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                  )
+                }
+
+                // Submit Button
+                Button(
+                  onClick = {
+                    if (doubtQueryInput.isNotBlank()) {
+                      activeDoubt = VoiceDoubtSolverRepository.resolveDoubt(doubtQueryInput, selectedGrade, selectedSubjectFilter)
+                      speakExplanation(activeDoubt.detailedVoiceExplanation)
+                    } else {
+                      Toast.makeText(context, "කරුණාකර ඔබේ ගැටලුව ලියන්න හෝ මයික්‍රෆෝනය ඔබන්න", Toast.LENGTH_SHORT).show()
+                    }
+                  },
+                  shape = RoundedCornerShape(10.dp),
+                  colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                  modifier = Modifier
+                    .weight(1f)
+                    .testTag("submit_doubt_btn")
+                ) {
+                  Icon(Icons.Default.Send, contentDescription = "Submit", modifier = Modifier.size(15.dp))
+                  Spacer(modifier = Modifier.width(5.dp))
+                  Text(
+                    text = "විසඳුම & හඬ ගන්න",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                  )
+                }
+              }
+            }
+          }
+        }
+
+        // =====================================================================
+        // 2. GRADE SELECTION (ශ්‍රේණිය තෝරන්න) - DIRECTLY BELOW THE ASK BOX
+        // =====================================================================
+        item {
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .widthIn(max = 336.dp)
+              .testTag("grade_selector_card")
+          ) {
+            Column(
+              modifier = Modifier.padding(12.dp),
+              verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Text("🎓", fontSize = 14.sp)
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text(
+                    text = "ශ්‍රේණිය තෝරන්න (Select Grade)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                  )
+                }
+                Surface(
+                  shape = RoundedCornerShape(6.dp),
+                  color = Color(0xFFEFF6FF)
+                ) {
+                  Text(
+                    text = "දැනට: $selectedGrade ශ්‍රේණිය",
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0284C7),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                  )
+                }
+              }
+
+              // Grade Pills Row: 9, 10, 11 only
+              Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                gradesList.forEach { gVal ->
+                  val isSelected = selectedGrade == gVal
+                  Surface(
+                    onClick = {
+                      selectedGrade = gVal
+                      val units = SyllabusUnitsRepository.getUnitsFor(gVal, selectedSubjectFilter)
+                      if (units.isNotEmpty()) {
+                        activeDoubt = VoiceDoubtSolverRepository.fromUnit(units.first())
+                      }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) Color(0xFF0284C7) else Color(0xFFF1F5F9),
+                    border = BorderStroke(
+                      width = if (isSelected) 1.5.dp else 1.dp,
+                      color = if (isSelected) Color(0xFF0369A1) else Color(0xFFCBD5E1)
+                    ),
+                    modifier = Modifier.weight(1f)
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(vertical = 8.dp),
+                      horizontalArrangement = Arrangement.Center,
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      Text(
+                        text = if (gVal == "11") "11 ශ්‍රේණිය (O/L)" else "10 ශ්‍රේණිය",
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else Color(0xFF0F172A)
+                      )
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // =====================================================================
+        // 3. SUBJECT SELECTION (විෂය තෝරන්න) - HIGH CONTRAST, NEVER WHITE-ON-WHITE
+        // =====================================================================
+        item {
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .widthIn(max = 336.dp)
+              .testTag("subject_selector_card")
+          ) {
+            Column(
+              modifier = Modifier.padding(12.dp),
+              verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Text("📚", fontSize = 14.sp)
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text(
+                    text = "විෂය තෝරන්න (Select Subject)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                  )
+                }
+                Surface(
+                  shape = RoundedCornerShape(6.dp),
+                  color = Color(0xFFF0FDF4),
+                  border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                ) {
+                  Text(
+                    text = "${syllabusUnits.size} පාඩම්",
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF15803D),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                  )
+                }
+              }
+
+              // High-Contrast Custom Subject Filter Chips
+              LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                items(subjectsList) { subj ->
+                  val isSelected = selectedSubjectFilter == subj
+                  val icon = when (subj) {
+                    "සියල්ල" -> "🌐"
+                    "ගණිතය" -> "📐"
+                    "විද්‍යාව" -> "🔬"
+                    "ඉතිහාසය" -> "📜"
+                    "සිංහල" -> "✍️"
+                    "ඉංග්‍රීසි" -> "🔤"
+                    "ICT" -> "💻"
+                    "බුද්ධ ධර්මය" -> "☸️"
+                    "භූගෝල විද්‍යාව" -> "🌍"
+                    "පුරවැසි අධ්‍යාපනය" -> "🏛️"
+                    "ව්‍යාපාර හා ගිණුම්කරණය" -> "📊"
+                    "සෞඛ්‍යය" -> "🏥"
+                    else -> "📘"
+                  }
+
+                  Surface(
+                    onClick = {
+                      selectedSubjectFilter = subj
+                      val units = SyllabusUnitsRepository.getUnitsFor(selectedGrade, subj)
+                      if (units.isNotEmpty()) {
+                        activeDoubt = VoiceDoubtSolverRepository.fromUnit(units.first())
+                      }
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF0284C7) else Color(0xFFE2E8F0),
+                    border = BorderStroke(
+                      width = if (isSelected) 1.5.dp else 1.dp,
+                      color = if (isSelected) Color(0xFF0369A1) else Color(0xFF94A3B8)
+                    )
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      Text(icon, fontSize = 11.sp)
+                      Spacer(modifier = Modifier.width(4.dp))
+                      Text(
+                        text = subj,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                        color = if (isSelected) Color.White else Color(0xFF0F172A) // ALWAYS HIGH CONTRAST, NEVER WHITE ON WHITE
+                      )
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // =====================================================================
+        // 4. ACTIVE DOUBT / CONCEPT VOICE AUDIO PLAYER
+        // =====================================================================
+        item {
+          Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.2.dp, Color(0xFF38BDF8)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .widthIn(max = 336.dp)
+              .testTag("active_doubt_voice_card")
+          ) {
+            Column(
+              modifier = Modifier.padding(13.dp),
+              verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+              // Subject & Topic Badge Row
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFEFF6FF),
+                    border = BorderStroke(1.dp, Color(0xFF93C5FD))
+                  ) {
+                    Text(
+                      text = "${activeDoubt.grade} ශ්‍රේණිය • ${activeDoubt.subject}",
+                      fontSize = 9.5.sp,
                       fontWeight = FontWeight.Bold,
-                      color = Color(0xFF1D4ED8)
+                      color = Color(0xFF1D4ED8),
+                      modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                  }
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFF1F5F9)
+                  ) {
+                    Text(
+                      text = activeDoubt.relatedTopic,
+                      fontSize = 9.sp,
+                      color = Color(0xFF475569),
+                      modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                  }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  // Bookmark button
+                  IconButton(
+                    onClick = {
+                      isBookmarked = !isBookmarked
+                      Toast.makeText(context, if (isBookmarked) "පාඩම සුරැකිණි! ⭐" else "සුරැකීම ඉවත් විය", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(28.dp)
+                  ) {
+                    Icon(
+                      imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                      contentDescription = "Bookmark",
+                      tint = if (isBookmarked) Color(0xFFF59E0B) else Color(0xFF94A3B8),
+                      modifier = Modifier.size(17.dp)
+                    )
+                  }
+
+                  // Copy button
+                  IconButton(
+                    onClick = {
+                      clipboard.setText(AnnotatedString("${activeDoubt.questionSinhala}\n\n${activeDoubt.detailedVoiceExplanation}"))
+                      Toast.makeText(context, "පැහැදිලි කිරීම පිටපත් විය!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(28.dp)
+                  ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = Color(0xFF64748B), modifier = Modifier.size(15.dp))
+                  }
+                }
+              }
+
+              // Question / Topic Heading
+              Text(
+                text = "💡 ${activeDoubt.questionSinhala}",
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF0F172A),
+                lineHeight = 18.sp
+              )
+
+              // 🎧 AUDIO CONTROLLER BAR WITH WAVEFORM
+              Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF0F172A),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(
+                  modifier = Modifier.padding(11.dp),
+                  verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                      Box(
+                        modifier = Modifier
+                          .size(28.dp)
+                          .clip(CircleShape)
+                          .background(if (isSpeaking) Color(0xFFEF4444) else Color(0xFF10B981)),
+                        contentAlignment = Alignment.Center
+                      ) {
+                        Text("🔊", fontSize = 14.sp)
+                      }
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Column {
+                        Text(
+                          text = if (isSpeaking) "හඬින් විස්තර කරමින් පවතී..." else "සම්පූර්ණ සංකල්පය හඬින් අසන්න",
+                          fontSize = 11.5.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color.White
+                        )
+                        Text(
+                          text = "AI Sinhala Voice Tutor",
+                          fontSize = 8.5.sp,
+                          color = Color(0xFF94A3B8)
+                        )
+                      }
+                    }
+
+                    // Equalizer Waveform & Speed Toggle
+                    Row(
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                      if (isSpeaking) {
+                        Row(
+                          horizontalArrangement = Arrangement.spacedBy(2.dp),
+                          verticalAlignment = Alignment.Bottom,
+                          modifier = Modifier.height(18.dp)
+                        ) {
+                          Box(modifier = Modifier.width(3.dp).height(eqBar1.dp).background(Color(0xFF38BDF8), RoundedCornerShape(1.dp)))
+                          Box(modifier = Modifier.width(3.dp).height(eqBar2.dp).background(Color(0xFF34D399), RoundedCornerShape(1.dp)))
+                          Box(modifier = Modifier.width(3.dp).height(eqBar3.dp).background(Color(0xFFF472B6), RoundedCornerShape(1.dp)))
+                        }
+                      }
+
+                      Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF334155),
+                        modifier = Modifier.clickable {
+                          speechSpeed = when (speechSpeed) {
+                            0.75f -> 1.0f
+                            1.0f -> 1.25f
+                            else -> 0.75f
+                          }
+                          if (isSpeaking) {
+                            ttsEngine?.setSpeechRate(speechSpeed)
+                          }
+                        }
+                      ) {
+                        Text(
+                          text = "${speechSpeed}x වේගය",
+                          fontSize = 9.5.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color(0xFF38BDF8),
+                          modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                      }
+                    }
+                  }
+
+                  // Audio Control Buttons
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    // Play / Pause Button
+                    Button(
+                      onClick = { speakExplanation(activeDoubt.detailedVoiceExplanation) },
+                      shape = RoundedCornerShape(8.dp),
+                      colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSpeaking) Color(0xFFEF4444) else Color(0xFF0284C7)
+                      ),
+                      modifier = Modifier
+                        .weight(1.2f)
+                        .testTag("play_doubt_voice_btn")
+                    ) {
+                      Icon(
+                        imageVector = if (isSpeaking) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = "Play/Pause",
+                        modifier = Modifier.size(16.dp)
+                      )
+                      Spacer(modifier = Modifier.width(4.dp))
+                      Text(
+                        text = if (isSpeaking) "විරාමය" else "හඬට සවන්දෙන්න",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                      )
+                    }
+
+                    // Replay Button
+                    OutlinedButton(
+                      onClick = { replaySpeaking() },
+                      shape = RoundedCornerShape(8.dp),
+                      border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                      colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                      modifier = Modifier.weight(0.9f)
+                    ) {
+                      Icon(Icons.Default.Refresh, contentDescription = "Replay", modifier = Modifier.size(14.dp))
+                      Spacer(modifier = Modifier.width(3.dp))
+                      Text("නැවත මුල සිට", fontSize = 10.sp, maxLines = 1)
+                    }
+
+                    // Stop Button (if speaking)
+                    if (isSpeaking) {
+                      OutlinedButton(
+                        onClick = { stopSpeaking() },
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444)),
+                        modifier = Modifier.weight(0.7f)
+                      ) {
+                        Icon(Icons.Default.Stop, contentDescription = "Stop", modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("නවත්වන්න", fontSize = 9.5.sp, maxLines = 1)
+                      }
+                    }
+                  }
+
+                  // Previous / Next Lesson Navigation
+                  if (displayedUnits.size > 1) {
+                    val currentIndex = displayedUnits.indexOfFirst { "unit_${it.id}" == activeDoubt.id }
+                    Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      TextButton(
+                        onClick = {
+                          if (currentIndex > 0) {
+                            val prevUnit = displayedUnits[currentIndex - 1]
+                            activeDoubt = VoiceDoubtSolverRepository.fromUnit(prevUnit)
+                            speakExplanation(activeDoubt.detailedVoiceExplanation)
+                          }
+                        },
+                        enabled = currentIndex > 0
+                      ) {
+                        Text(
+                          text = "◀ පෙර පාඩම",
+                          fontSize = 10.5.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = if (currentIndex > 0) Color(0xFF38BDF8) else Color(0xFF64748B)
+                        )
+                      }
+
+                      Text(
+                        text = if (currentIndex >= 0) "පාඩම ${currentIndex + 1} / ${displayedUnits.size}" else "${displayedUnits.size} පාඩම්",
+                        fontSize = 10.sp,
+                        color = Color(0xFF94A3B8)
+                      )
+
+                      TextButton(
+                        onClick = {
+                          if (currentIndex >= 0 && currentIndex < displayedUnits.size - 1) {
+                            val nextUnit = displayedUnits[currentIndex + 1]
+                            activeDoubt = VoiceDoubtSolverRepository.fromUnit(nextUnit)
+                            speakExplanation(activeDoubt.detailedVoiceExplanation)
+                          }
+                        },
+                        enabled = currentIndex in 0 until (displayedUnits.size - 1)
+                      ) {
+                        Text(
+                          text = "ඊළඟ පාඩම ▶",
+                          fontSize = 10.5.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = if (currentIndex in 0 until (displayedUnits.size - 1)) Color(0xFF38BDF8) else Color(0xFF64748B)
+                        )
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Summary Box
+              Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFFF0FDF4),
+                border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier.padding(9.dp),
+                  verticalAlignment = Alignment.Top
+                ) {
+                  Text("📌", fontSize = 12.sp)
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Column {
+                    Text(
+                      text = "කෙටි සාරාංශය (Summary):",
+                      fontSize = 10.5.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color(0xFF166534)
+                    )
+                    Text(
+                      text = activeDoubt.shortSummary,
+                      fontSize = 10.5.sp,
+                      color = Color(0xFF14532D),
+                      lineHeight = 15.sp
+                    )
+                  }
+                }
+              }
+
+              // Step-by-Step Breakdown
+              Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(
+                  text = "📝 පියවරෙන් පියවර පැහැදිලි කිරීම:",
+                  fontSize = 11.5.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = Color(0xFF0F172A)
+                )
+
+                activeDoubt.stepByStepSolution.forEach { step ->
+                  Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                  ) {
+                    Text(
+                      text = step,
+                      fontSize = 10.5.sp,
+                      color = Color(0xFF334155),
+                      lineHeight = 15.sp,
+                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                    )
+                  }
+                }
+              }
+
+              // Core Formula or Rule
+              if (activeDoubt.coreFormulaOrRule.isNotBlank()) {
+                Surface(
+                  shape = RoundedCornerShape(8.dp),
+                  color = Color(0xFFEFF6FF),
+                  border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                  modifier = Modifier.fillMaxWidth()
+                ) {
+                  Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Text("📐", fontSize = 13.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
+                      Text(
+                        text = "මූලික සූත්‍රය / නීතිය:",
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E40AF)
+                      )
+                      Text(
+                        text = activeDoubt.coreFormulaOrRule,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1D4ED8)
+                      )
+                    }
+                  }
+                }
+              }
+
+              // Exam Tip Box
+              Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFFFFFBEB),
+                border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier.padding(8.dp),
+                  verticalAlignment = Alignment.Top
+                ) {
+                  Text("🎯", fontSize = 13.sp)
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Column {
+                    Text(
+                      text = "විභාග උපදෙස් & ලකුණු ලබාගැනීම:",
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color(0xFFB45309)
+                    )
+                    Text(
+                      text = activeDoubt.examTip,
+                      fontSize = 10.sp,
+                      color = Color(0xFF92400E),
+                      lineHeight = 14.sp
                     )
                   }
                 }
               }
             }
-
-            // Exam Tip Box
-            Surface(
-              shape = RoundedCornerShape(10.dp),
-              color = Color(0xFFFFFBEB),
-              border = BorderStroke(1.dp, Color(0xFFFDE68A)),
-              modifier = Modifier.fillMaxWidth()
-            ) {
-              Row(
-                modifier = Modifier.padding(10.dp),
-                verticalAlignment = Alignment.Top
-              ) {
-                Text("🎯", fontSize = 14.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                  Text(
-                    text = "විභාග උපදෙස් & ලකුණු ලබාගැනීම:",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFB45309)
-                  )
-                  Text(
-                    text = activeDoubt.examTip,
-                    fontSize = 10.5.sp,
-                    color = Color(0xFF92400E),
-                    lineHeight = 15.sp
-                  )
-                }
-              }
-            }
           }
         }
-      }
 
-      // 4. CURATED COMMON DOUBTS LIBRARY (ONE-TAP VOICE PLAY)
-      item {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Text(
-              text = "📚 නිතර අසන ප්‍රධාන විභාග ගැටලු (${filteredDoubts.size})",
-              fontSize = 13.5.sp,
-              fontWeight = FontWeight.Bold,
-              color = Color(0xFF0F172A)
-            )
-            Text(
-              text = "හඬින් අසන්න",
-              fontSize = 10.5.sp,
-              color = Color(0xFF0284C7),
-              fontWeight = FontWeight.Bold
-            )
-          }
-
-          // Subject Filter Chips
-          LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth()
-          ) {
-            items(subjectsList) { subj ->
-              val isSelected = selectedSubjectFilter == subj
-              FilterChip(
-                selected = isSelected,
-                onClick = { selectedSubjectFilter = subj },
-                label = { Text(subj, fontSize = 10.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                colors = FilterChipDefaults.filterChipColors(
-                  selectedContainerColor = Color(0xFF0284C7),
-                  selectedLabelColor = Color.White
-                )
-              )
-            }
-          }
-        }
-      }
-
-      // List of Curated Doubt Cards
-      items(filteredDoubts) { doubt ->
-        Card(
-          shape = RoundedCornerShape(12.dp),
-          colors = CardDefaults.cardColors(
-            containerColor = if (doubt.id == activeDoubt.id) Color(0xFFEFF6FF) else Color.White
-          ),
-          border = BorderStroke(
-            1.dp,
-            if (doubt.id == activeDoubt.id) Color(0xFF38BDF8) else Color(0xFFE2E8F0)
-          ),
-          elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-          modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-              activeDoubt = doubt
-              speakExplanation(doubt.detailedVoiceExplanation)
-            }
-        ) {
-          Row(
+        // =====================================================================
+        // 5. ALL LESSONS FOR ALL SUBJECTS WITH COMPLETE VOICE CONCEPTS
+        // =====================================================================
+        item {
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             modifier = Modifier
               .fillMaxWidth()
-              .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+              .widthIn(max = 336.dp)
+              .testTag("syllabus_units_card")
           ) {
-            Box(
-              modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(if (doubt.id == activeDoubt.id && isSpeaking) Color(0xFFEF4444) else Color(0xFFF1F5F9)),
-              contentAlignment = Alignment.Center
+            Column(
+              modifier = Modifier.padding(12.dp),
+              verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-              Icon(
-                imageVector = if (doubt.id == activeDoubt.id && isSpeaking) Icons.Default.GraphicEq else Icons.Default.VolumeUp,
-                contentDescription = "Play",
-                tint = if (doubt.id == activeDoubt.id && isSpeaking) Color.White else Color(0xFF0284C7),
-                modifier = Modifier.size(18.dp)
-              )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                  shape = RoundedCornerShape(4.dp),
-                  color = Color(0xFFE0F2FE)
-                ) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Column {
                   Text(
-                    text = doubt.subject,
-                    fontSize = 9.sp,
+                    text = "📖 $selectedGrade ශ්‍රේණිය ${if (selectedSubjectFilter != "සියල්ල") "- $selectedSubjectFilter" else ""} සියලුම පාඩම් (${displayedUnits.size})",
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0369A1),
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                    color = Color(0xFF0F172A)
+                  )
+                  Text(
+                    text = "ඕනෑම පාඩමක් තෝරා සම්පූර්ණ සංකල්පය හඬින් අසන්න",
+                    fontSize = 9.5.sp,
+                    color = Color(0xFF64748B)
                   )
                 }
-                Spacer(modifier = Modifier.width(6.dp))
+
+                Surface(
+                  shape = RoundedCornerShape(6.dp),
+                  color = Color(0xFFF0FDF4),
+                  border = BorderStroke(1.dp, Color(0xFF86EFAC))
+                ) {
+                  Text(
+                    text = "100% ආවරණය",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF166534),
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                  )
+                }
+              }
+
+              // Search Filter for Lessons
+              OutlinedTextField(
+                value = lessonSearchQuery,
+                onValueChange = { lessonSearchQuery = it },
+                placeholder = { Text("පාඩම හෝ මාතෘකාව සොයන්න...", fontSize = 10.5.sp, color = Color(0xFF94A3B8)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(16.dp)) },
+                trailingIcon = {
+                  if (lessonSearchQuery.isNotEmpty()) {
+                    IconButton(onClick = { lessonSearchQuery = "" }) {
+                      Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(15.dp))
+                    }
+                  }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+              )
+
+              // List of All Lessons in that Grade & Subject
+              Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                displayedUnits.forEach { unit ->
+                  val isSelectedUnit = activeDoubt.id == "unit_${unit.id}"
+                  Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelectedUnit) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
+                    border = BorderStroke(
+                      width = if (isSelectedUnit) 1.5.dp else 1.dp,
+                      color = if (isSelectedUnit) Color(0xFF38BDF8) else Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .clickable {
+                        activeDoubt = VoiceDoubtSolverRepository.fromUnit(unit)
+                        speakExplanation(activeDoubt.detailedVoiceExplanation)
+                      }
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(8.dp),
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      Box(
+                        modifier = Modifier
+                          .size(28.dp)
+                          .clip(CircleShape)
+                          .background(if (isSelectedUnit && isSpeaking) Color(0xFFEF4444) else Color(0xFF0284C7)),
+                        contentAlignment = Alignment.Center
+                      ) {
+                        Icon(
+                          imageVector = if (isSelectedUnit && isSpeaking) Icons.Default.GraphicEq else Icons.Default.VolumeUp,
+                          contentDescription = "Listen",
+                          tint = Color.White,
+                          modifier = Modifier.size(14.dp)
+                        )
+                      }
+
+                      Spacer(modifier = Modifier.width(8.dp))
+
+                      Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                          Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFE0F2FE)
+                          ) {
+                            Text(
+                              text = "${unit.subject} • ඒකකය ${unit.unitNumber}",
+                              fontSize = 8.sp,
+                              fontWeight = FontWeight.Bold,
+                              color = Color(0xFF0369A1),
+                              modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                          }
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                          text = unit.titleSinhala,
+                          fontSize = 11.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color(0xFF0F172A),
+                          maxLines = 1,
+                          overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                          text = unit.englishTitle,
+                          fontSize = 9.sp,
+                          color = Color(0xFF64748B),
+                          maxLines = 1,
+                          overflow = TextOverflow.Ellipsis
+                        )
+                      }
+
+                      Spacer(modifier = Modifier.width(6.dp))
+
+                      Button(
+                        onClick = {
+                          activeDoubt = VoiceDoubtSolverRepository.fromUnit(unit)
+                          speakExplanation(activeDoubt.detailedVoiceExplanation)
+                        },
+                        shape = RoundedCornerShape(6.dp),
+                        colors = ButtonDefaults.buttonColors(
+                          containerColor = if (isSelectedUnit && isSpeaking) Color(0xFFEF4444) else Color(0xFF0284C7)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(28.dp)
+                      ) {
+                        Text(
+                          text = if (isSelectedUnit && isSpeaking) "විරාමය" else "හඬින් අසන්න",
+                          fontSize = 9.sp,
+                          fontWeight = FontWeight.Bold
+                        )
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // =====================================================================
+        // 6. CURATED EXAM DOUBTS LIBRARY (ONE-TAP VOICE AUDIO)
+        // =====================================================================
+        item {
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .widthIn(max = 336.dp)
+          ) {
+            Column(
+              modifier = Modifier.padding(12.dp),
+              verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
                 Text(
-                  text = doubt.relatedTopic,
-                  fontSize = 9.sp,
-                  color = Color(0xFF64748B),
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
+                  text = "📚 නිතර අසන ප්‍රධාන විභාග ගැටලු (${filteredDoubts.size})",
+                  fontSize = 12.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = Color(0xFF0F172A)
+                )
+                Text(
+                  text = "1-ටැප් හඬ පිළිතුරු",
+                  fontSize = 9.5.sp,
+                  color = Color(0xFF0284C7),
+                  fontWeight = FontWeight.Bold
                 )
               }
 
-              Spacer(modifier = Modifier.height(3.dp))
+              Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                filteredDoubts.take(8).forEach { doubt ->
+                  val isSelected = doubt.id == activeDoubt.id
+                  Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
+                    border = BorderStroke(
+                      1.dp,
+                      if (isSelected) Color(0xFF38BDF8) else Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .clickable {
+                        activeDoubt = doubt
+                        speakExplanation(doubt.detailedVoiceExplanation)
+                      }
+                  ) {
+                    Row(
+                      modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      Box(
+                        modifier = Modifier
+                          .size(28.dp)
+                          .clip(CircleShape)
+                          .background(if (isSelected && isSpeaking) Color(0xFFEF4444) else Color(0xFFF1F5F9)),
+                        contentAlignment = Alignment.Center
+                      ) {
+                        Icon(
+                          imageVector = if (isSelected && isSpeaking) Icons.Default.GraphicEq else Icons.Default.VolumeUp,
+                          contentDescription = "Play",
+                          tint = if (isSelected && isSpeaking) Color.White else Color(0xFF0284C7),
+                          modifier = Modifier.size(14.dp)
+                        )
+                      }
 
-              Text(
-                text = doubt.questionSinhala,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-              )
+                      Spacer(modifier = Modifier.width(8.dp))
 
-              Text(
-                text = doubt.shortSummary,
-                fontSize = 10.sp,
-                color = Color(0xFF64748B),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-              )
+                      Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                          Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFE0F2FE)
+                          ) {
+                            Text(
+                              text = doubt.subject,
+                              fontSize = 8.sp,
+                              fontWeight = FontWeight.Bold,
+                              color = Color(0xFF0369A1),
+                              modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                          }
+                          Spacer(modifier = Modifier.width(4.dp))
+                          Text(
+                            text = doubt.relatedTopic,
+                            fontSize = 8.5.sp,
+                            color = Color(0xFF64748B),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                          )
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                          text = doubt.questionSinhala,
+                          fontSize = 11.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color(0xFF0F172A),
+                          maxLines = 1,
+                          overflow = TextOverflow.Ellipsis
+                        )
+                      }
+
+                      Spacer(modifier = Modifier.width(4.dp))
+
+                      Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Open",
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(14.dp)
+                      )
+                    }
+                  }
+                }
+              }
             }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            Icon(
-              Icons.AutoMirrored.Filled.ArrowForward,
-              contentDescription = "Open",
-              tint = Color(0xFF94A3B8),
-              modifier = Modifier.size(16.dp)
-            )
           }
         }
-      }
 
-      item {
-        Spacer(modifier = Modifier.height(20.dp))
+        item {
+          Spacer(modifier = Modifier.height(16.dp))
+        }
       }
     }
   }

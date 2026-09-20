@@ -191,6 +191,9 @@ object MistakeNotebookRepository {
   }
 
   fun addMistake(context: Context, item: MistakeItem) {
+    // Only genuine mistakes allowed (වරදවාගන්නා ප්‍රශ්න පමණි)
+    if (item.userWrongAnswerIndex == item.correctOptionIndex) return
+
     val current = getAllMistakes(context).toMutableList()
     val existingIndex = current.indexOfFirst { it.id == item.id || it.questionText == item.questionText }
     if (existingIndex >= 0) {
@@ -199,20 +202,28 @@ object MistakeNotebookRepository {
     } else {
       current.add(0, item)
     }
-    saveList(context, current)
+    // Limit up to 200 mistake questions (උපරිම ප්‍රශ්න 200)
+    val trimmed = if (current.size > 200) current.take(200) else current
+    saveList(context, trimmed)
   }
 
   fun addMistakes(context: Context, items: List<MistakeItem>) {
+    // Only genuine mistakes allowed (වරදවාගන්නා ප්‍රශ්න පමණි)
+    val onlyWrong = items.filter { it.userWrongAnswerIndex != it.correctOptionIndex }
+    if (onlyWrong.isEmpty()) return
+
     val current = getAllMistakes(context).toMutableList()
-    for (item in items) {
+    for (item in onlyWrong) {
       val existingIndex = current.indexOfFirst { it.id == item.id || it.questionText == item.questionText }
       if (existingIndex >= 0) {
-        current[existingIndex] = item.copy(isMastered = false)
+        current[existingIndex] = item.copy(isMastered = false, userWrongAnswerIndex = item.userWrongAnswerIndex)
       } else {
         current.add(0, item)
       }
     }
-    saveList(context, current)
+    // Limit up to 200 mistake questions (උපරිම ප්‍රශ්න 200)
+    val trimmed = if (current.size > 200) current.take(200) else current
+    saveList(context, trimmed)
   }
 
   fun markAsMastered(context: Context, id: String, mastered: Boolean) {

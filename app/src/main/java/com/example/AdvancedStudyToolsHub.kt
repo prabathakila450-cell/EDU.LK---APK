@@ -657,98 +657,8 @@ data class GlossaryTermItem(
   val examTip: String
 )
 
-val sampleGlossaryTerms = listOf(
-  GlossaryTermItem(
-    id = "g1",
-    englishTerm = "Osmosis",
-    sinhalaTerm = "ආස්‍රැතිය",
-    tamilTerm = "பிரசாரணம்",
-    subject = "විද්‍යාව",
-    definitionSinhala = "වරණීය පාරගම්‍ය පටලයක් හරහා ජල විභවය වැඩි කලාපයක සිට ජල විභවය අඩු කලාපයකට ජල අණු ස්වයංසිද්ධව සංක්‍රමණය වීම.",
-    examTip = "සෛල ප්ලාස්ම විච්ඡේදනය හා ශූනතාව පිළිබඳ O/L කෙටි සටහන්වල නිතර අසන ප්‍රශ්නයකි."
-  ),
-  GlossaryTermItem(
-    id = "g2",
-    englishTerm = "Photosynthesis",
-    sinhalaTerm = "ප්‍රභාසංස්ලේෂණය",
-    tamilTerm = "ஒளித்தொகுப்பு",
-    subject = "විද්‍යාව",
-    definitionSinhala = "හරිතප්‍රද අඩංගු ශාක පත්‍ර මගින් සූර්යාලෝක ශක්තිය අවශෝෂණය කර කාබන් ඩයොක්සයිඩ් සහ ජලය යොදා ග්ලූකෝස් සහ ඔක්සිජන් නිපදවීමේ ක්‍රියාවලිය.",
-    examTip = "සමතුලිත රසායනික සමීකරණය: 6CO₂ + 6H₂O -> C₆H₁₂O₆ + 6O₂"
-  ),
-  GlossaryTermItem(
-    id = "g3",
-    englishTerm = "Quadratic Equation",
-    sinhalaTerm = "වර්ගජ සමීකරණය",
-    tamilTerm = "இருபடிச் சமன்பாடு",
-    subject = "ගණිතය",
-    definitionSinhala = "විචල්‍යයේ උපරිම බලය 2 වන, ax² + bx + c = 0 ආකාරයෙන් දැක්විය හැකි වීජීය සමීකරණයකි.",
-    examTip = "O/L ගණිතය දෙවන පත්‍රයේ අනිවාර්ය වර්ගජ සමීකරණ ගැටලුව සඳහා සූත්‍රය මතක තබාගන්න."
-  ),
-  GlossaryTermItem(
-    id = "g4",
-    englishTerm = "Hypotenuse",
-    sinhalaTerm = "කර්ණය",
-    tamilTerm = "செம்பக்கம்",
-    subject = "ගණිතය",
-    definitionSinhala = "ඍජුකෝණී ත්‍රිකෝණයක ඍජුකෝණයට සම්මුඛව පිහිටි දිගම පාදය.",
-    examTip = "පයිතගරස් ප්‍රමේයයේදී කර්ණයේ වර්ගය අනෙක් පාද දෙකේ වර්ගවල එකතුවට සමාන වේ."
-  ),
-  GlossaryTermItem(
-    id = "g5",
-    englishTerm = "Algorithm",
-    sinhalaTerm = "ඇල්ගොරිතමය",
-    tamilTerm = "படிமுறை",
-    subject = "තොරතුරු තාක්ෂණය (ICT)",
-    definitionSinhala = "යම් ගැටලුවක් විසඳීම සඳහා පිළිපැදිය යුතු පියවරෙන් පියවර නිශ්චිත උපදෙස් මාලාවකි.",
-    examTip = "ගැලීම් සටහන් (Flowcharts) සහ ව්‍යාජ කේත (Pseudocode) මගින් ඇල්ගොරිතම නිරූපණය කෙරේ."
-  ),
-  GlossaryTermItem(
-    id = "g6",
-    englishTerm = "RAM (Random Access Memory)",
-    sinhalaTerm = "සසම්භාවී ප්‍රවේශ මතකය",
-    tamilTerm = "எழுமாற்று அணுகல் நினைவகம்",
-    subject = "තොරතුරු තාක්ෂණය (ICT)",
-    definitionSinhala = "පරිගණකය ක්‍රියාත්මකව පවතින විට පමණක් දත්ත රඳවා ගන්නා ප්‍රධාන වාෂ්පශීලී (Volatile) මතකය.",
-    examTip = "විදුලිය විසන්ධි වූ විට RAM හි ඇති දත්ත මැකී යයි. ROM හි දත්ත ස්ථිර වේ."
-  ),
-  GlossaryTermItem(
-    id = "g7",
-    englishTerm = "Double Entry Principle",
-    sinhalaTerm = "ද්විත්ව සටහන් මූලධර්මය",
-    tamilTerm = "இரட்டைப் பதிவு முறைமை",
-    subject = "වාණිජ (Commerce)",
-    definitionSinhala = "සෑම ගනුදෙනුවකදීම එක් ගිණුමක් හර (Debit) වන විට ඊට සමාන මුදලකින් තවත් ගිණුමක් බැර (Credit) වන මූලධර්මය.",
-    examTip = "ගිණුම්කරණ සමීකරණය: වත්කම් = හිමිකම + වගකීම්."
-  ),
-  GlossaryTermItem(
-    id = "g8",
-    englishTerm = "Refraction of Light",
-    sinhalaTerm = "ආලෝක වර්තනය",
-    tamilTerm = "ஒளி முறிவு",
-    subject = "විද්‍යාව",
-    definitionSinhala = "ආලෝක කදම්භයක් එක් පාරදෘශ්‍ය මාධ්‍යයක සිට වෙනස් ප්‍රකාශ ඝනත්වයක් සහිත තවත් මාධ්‍යයකට ඇතුළු වීමේදී එහි වේගය වෙනස් වීම නිසා ගමන් දිශාව නැමී යාම.",
-    examTip = "ස්නෙල් නියමය: Sin i / Sin r = නියතයකි (වර්තන අංකය)."
-  ),
-  GlossaryTermItem(
-    id = "g9",
-    englishTerm = "Probability",
-    sinhalaTerm = "සම්භාවිතාව",
-    tamilTerm = "நிகழ்தகவு",
-    subject = "ගණිතය",
-    definitionSinhala = "යම් අහඹු පරීක්ෂණයකදී නිශ්චිත සිද්ධියක් සිදුවීමේ හැකියාව 0 සහ 1 අතර සංඛ්‍යාවකින් ප්‍රකාශ කිරීම.",
-    examTip = "P(A) = වාසිදායක ප්‍රතිඵල සංඛ්‍යාව / මුළු ප්‍රතිඵල සංඛ්‍යාව."
-  ),
-  GlossaryTermItem(
-    id = "g10",
-    englishTerm = "Phishing",
-    sinhalaTerm = "තතුබෑම",
-    tamilTerm = "தூண்டிலிடல்",
-    subject = "තොරතුරු තාක්ෂණය (ICT)",
-    definitionSinhala = "නීත්‍යානුකූල ආයතනයක් හෝ බැංකුවක් සේ පෙනී සිටිමින් වංචනික ඊමේල් හෝ වෙබ් අඩවි මගින් පරිශීලකයාගේ මුරපද සහ කාඩ්පත් අංක සොරාගැනීම.",
-    examTip = "සමාජ ඉංජිනේරු විද්‍යාත්මක තර්ජනයක් ලෙස O/L ICT විභාගයේ නිතර පැමිණේ."
-  )
-)
+val sampleGlossaryTerms: List<GlossaryTermItem>
+  get() = TrilingualGlossaryRepository.allGlossaryTerms
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -758,16 +668,32 @@ fun TriLingualGlossaryScreen(
   val clipboardManager = LocalClipboardManager.current
   val context = LocalContext.current
   var searchQuery by remember { mutableStateOf("") }
-  var selectedSubjectFilter by remember { mutableStateOf("සියල්ල") }
+  var selectedSubjectFilter by remember { mutableStateOf("විද්‍යාව") }
+  var selectedGroupFilter by remember { mutableIntStateOf(1) } // 0 = All, 1..10 = Groups of 10
 
   val subjectFilters = listOf("සියල්ල", "විද්‍යාව", "ගණිතය", "තොරතුරු තාක්ෂණය (ICT)", "වාණිජ (Commerce)")
+  val groupLabels = listOf(
+    0 to "සියලු කාණ්ඩ (1-100)",
+    1 to "කාණ්ඩය 1 (1-10)",
+    2 to "කාණ්ඩය 2 (11-20)",
+    3 to "කාණ්ඩය 3 (21-30)",
+    4 to "කාණ්ඩය 4 (31-40)",
+    5 to "කාණ්ඩය 5 (41-50)",
+    6 to "කාණ්ඩය 6 (51-60)",
+    7 to "කාණ්ඩය 7 (61-70)",
+    8 to "කාණ්ඩය 8 (71-80)",
+    9 to "කාණ්ඩය 9 (81-90)",
+    10 to "කාණ්ඩය 10 (91-100)"
+  )
 
-  val filteredTerms = remember(searchQuery, selectedSubjectFilter) {
-    sampleGlossaryTerms.filter { item ->
-      val matchesSearch = item.englishTerm.contains(searchQuery, ignoreCase = true) ||
-          item.sinhalaTerm.contains(searchQuery, ignoreCase = true) ||
-          item.tamilTerm.contains(searchQuery, ignoreCase = true) ||
-          item.definitionSinhala.contains(searchQuery, ignoreCase = true)
+  val filteredTerms = remember(searchQuery, selectedSubjectFilter, selectedGroupFilter) {
+    TrilingualGlossaryRepository.allGlossaryTerms.filter { item ->
+      val matchesSearch = if (searchQuery.isBlank()) true else {
+        item.englishTerm.contains(searchQuery, ignoreCase = true) ||
+            item.sinhalaTerm.contains(searchQuery, ignoreCase = true) ||
+            item.tamilTerm.contains(searchQuery, ignoreCase = true) ||
+            item.definitionSinhala.contains(searchQuery, ignoreCase = true)
+      }
 
       val matchesSubject = when (selectedSubjectFilter) {
         "සියල්ල" -> true
@@ -776,7 +702,10 @@ fun TriLingualGlossaryScreen(
         else -> item.subject.contains(selectedSubjectFilter)
       }
 
-      matchesSearch && matchesSubject
+      val itemGroup = TrilingualGlossaryRepository.getGroupNumber(item)
+      val matchesGroup = if (selectedGroupFilter == 0) true else itemGroup == selectedGroupFilter
+
+      matchesSearch && matchesSubject && matchesGroup
     }
   }
 
@@ -846,26 +775,50 @@ fun TriLingualGlossaryScreen(
 
       // Filter Chips
       item {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-          items(subjectFilters) { filter ->
-            val isSelected = selectedSubjectFilter == filter
-            FilterChip(
-              selected = isSelected,
-              onClick = { selectedSubjectFilter = filter },
-              label = { Text(filter, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-              colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = Color(0xFF0284C7),
-                selectedLabelColor = Color.White,
-                containerColor = Color(0xFF1E293B),
-                labelColor = Color(0xFFCBD5E1)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          Text("විෂය තෝරන්න:", fontSize = 11.sp, color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
+          LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(subjectFilters) { filter ->
+              val isSelected = selectedSubjectFilter == filter
+              FilterChip(
+                selected = isSelected,
+                onClick = { selectedSubjectFilter = filter },
+                label = { Text(filter, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                colors = FilterChipDefaults.filterChipColors(
+                  selectedContainerColor = Color(0xFF0284C7),
+                  selectedLabelColor = Color.White,
+                  containerColor = Color(0xFF1E293B),
+                  labelColor = Color(0xFFCBD5E1)
+                )
               )
-            )
+            }
+          }
+
+          Text("දහයේ කාණ්ඩ 10 (වචන 100):", fontSize = 11.sp, color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
+          LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(groupLabels) { (grpId, label) ->
+              val isSelected = selectedGroupFilter == grpId
+              FilterChip(
+                selected = isSelected,
+                onClick = { selectedGroupFilter = grpId },
+                label = { Text(label, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold) },
+                colors = FilterChipDefaults.filterChipColors(
+                  selectedContainerColor = Color(0xFF059669),
+                  selectedLabelColor = Color.White,
+                  containerColor = Color(0xFF1E293B),
+                  labelColor = Color(0xFFCBD5E1)
+                )
+              )
+            }
           }
         }
       }
 
       // Terms List
       items(filteredTerms) { item ->
+        val groupNum = TrilingualGlossaryRepository.getGroupNumber(item)
+        val itemNum = TrilingualGlossaryRepository.getItemIndexInSubject(item)
+
         Card(
           shape = RoundedCornerShape(12.dp),
           colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
@@ -892,17 +845,31 @@ fun TriLingualGlossaryScreen(
                   fontWeight = FontWeight.SemiBold
                 )
               }
-              Surface(
-                color = Color(0xFF0284C7),
-                shape = RoundedCornerShape(6.dp)
-              ) {
-                Text(
-                  text = item.subject,
-                  color = Color.White,
-                  fontSize = 9.sp,
-                  fontWeight = FontWeight.Bold,
-                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                )
+              Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Surface(
+                  color = Color(0xFF059669),
+                  shape = RoundedCornerShape(6.dp)
+                ) {
+                  Text(
+                    text = "කාණ්ඩය $groupNum (#$itemNum)",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                  )
+                }
+                Surface(
+                  color = Color(0xFF0284C7),
+                  shape = RoundedCornerShape(6.dp)
+                ) {
+                  Text(
+                    text = item.subject,
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                  )
+                }
               }
             }
 

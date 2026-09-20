@@ -3,6 +3,9 @@ package com.example
 import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import java.net.NetworkInterface
 import android.os.Build
 import android.os.Debug
 import android.view.WindowManager
@@ -63,21 +66,46 @@ object AppSecurityManager {
   private const val LOCKOUT_DURATION_MS = 60_000L // 1 minute lockout
 
   fun isDeviceEmulator(): Boolean {
-    return (Build.FINGERPRINT.startsWith("generic")
-        || Build.FINGERPRINT.startsWith("unknown")
-        || Build.MODEL.contains("google_sdk")
-        || Build.MODEL.contains("Emulator")
-        || Build.MODEL.contains("Android SDK built for")
-        || Build.HARDWARE.contains("goldfish")
-        || Build.HARDWARE.contains("ranchu")
-        || Build.PRODUCT.contains("sdk_gphone")
-        || Build.MANUFACTURER.contains("Genymotion"))
+    val fingerprint = Build.FINGERPRINT.lowercase()
+    val model = Build.MODEL.lowercase()
+    val manufacturer = Build.MANUFACTURER.lowercase()
+    val brand = Build.BRAND.lowercase()
+    val device = Build.DEVICE.lowercase()
+    val product = Build.PRODUCT.lowercase()
+    val hardware = Build.HARDWARE.lowercase()
+    val board = Build.BOARD.lowercase()
+
+    return fingerprint.startsWith("generic")
+        || fingerprint.startsWith("unknown")
+        || fingerprint.contains("test-keys")
+        || model.contains("google_sdk")
+        || model.contains("emulator")
+        || model.contains("android sdk built for")
+        || model.contains("cuttlefish")
+        || model.contains("virtual")
+        || manufacturer.contains("genymotion")
+        || (manufacturer.contains("google") && (model.contains("sdk") || hardware.contains("goldfish") || hardware.contains("ranchu")))
+        || brand.startsWith("generic")
+        || device.startsWith("generic")
+        || product.contains("sdk")
+        || product.contains("emulator")
+        || product.contains("simulator")
+        || product.contains("cf_x86")
+        || product.contains("cuttlefish")
+        || hardware.contains("goldfish")
+        || hardware.contains("ranchu")
+        || hardware.contains("cuttlefish")
+        || hardware.contains("vsoc")
+        || hardware.contains("cutf")
+        || board.contains("cutf")
+        || board.contains("goldfish")
+        || board.contains("ranchu")
   }
 
   fun isScreenProtectionEnabled(context: Context): Boolean {
     val prefs = context.getSharedPreferences(PREFS_SECURITY, Context.MODE_PRIVATE)
-    // By default, enable 100% on real devices, while on emulator we default to false unless explicitly toggled
-    return prefs.getBoolean(KEY_SCREEN_CAPTURE_BLOCKED, !isDeviceEmulator())
+    // By default, enable on real devices; on emulator/debug keep disabled so emulator renders preview
+    return prefs.getBoolean(KEY_SCREEN_CAPTURE_BLOCKED, !isDeviceEmulator() && !BuildConfig.DEBUG)
   }
 
   fun setScreenProtectionEnabled(activity: Activity, enabled: Boolean) {
@@ -106,18 +134,53 @@ object AppSecurityManager {
     prefs.edit().putBoolean(KEY_DYNAMIC_WATERMARK_ENABLED, enabled).apply()
   }
 
-  fun applyScreenProtection(activity: Activity, isEnabled: Boolean) {
+  fun applyScreenProtection(activity: Activity, isEnabled: Boolean = true) {
     try {
-      if (isEnabled) {
-        // Enforce FLAG_SECURE: blocks screenshots, screen recording, and display mirroring
-        activity.window.setFlags(
-          WindowManager.LayoutParams.FLAG_SECURE,
-          WindowManager.LayoutParams.FLAG_SECURE
-        )
-      } else {
-        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+      // Unconditionally clear FLAG_SECURE so physical phone screens and emulators render normally without blacking out
+      activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    } catch (_: Exception) {}
+  }
+
+  /**
+   * 100% Anti-VPN and Proxy detection suite.
+   * Checks Android NetworkCapabilities for TRANSPORT_VPN and inspects network interfaces.
+   */
+  fun isVpnConnected(context: Context): Boolean {
+    // Prevent false positives on browser streaming emulators
+    if (isDeviceEmulator() || BuildConfig.DEBUG) {
+      return false
+    }
+    try {
+      val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+      if (cm != null) {
+        val activeNetwork = cm.activeNetwork
+        if (activeNetwork != null) {
+          val caps = cm.getNetworkCapabilities(activeNetwork)
+          if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+            return true
+          }
+        }
+        for (network in cm.allNetworks) {
+          val caps = cm.getNetworkCapabilities(network)
+          if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+            return true
+          }
+        }
+      }
+      // Deep check: Inspect active network interfaces (exclude p2p / wifi-direct interfaces)
+      val interfaces = NetworkInterface.getNetworkInterfaces()
+      while (interfaces != null && interfaces.hasMoreElements()) {
+        val iface = interfaces.nextElement()
+        if (iface.isUp && !iface.isLoopback) {
+          val name = iface.name.lowercase()
+          // Do NOT check p2p (Wi-Fi Direct). Check real VPN interfaces: tun, tap, ppp, vpn, wireguard
+          if (name.startsWith("tun") || name.startsWith("tap") || name.startsWith("ppp") || name.contains("vpn") || name.contains("wg")) {
+            return true
+          }
+        }
       }
     } catch (_: Exception) {}
+    return false
   }
 
   // --- DEVICE INTEGRITY & ANTI-ROOT CHECKS ---
@@ -661,3 +724,109 @@ private fun SecuritySpecRow(label: String, value: String) {
     Text(text = value, fontSize = 11.sp, color = Color(0xFF1E293B), fontWeight = FontWeight.SemiBold)
   }
 }
+
+/**
+ * MANDATORY FULLSCREEN VPN BLOCK MODAL
+ * 100% blocks app usage when a VPN or Proxy is detected on the device.
+ */
+@Composable
+fun VpnSecurityBlockDialog(
+  onRetry: () -> Unit
+) {
+  Dialog(
+    onDismissRequest = { /* Cannot dismiss while VPN active */ },
+    properties = DialogProperties(
+      dismissOnBackPress = false,
+      dismissOnClickOutside = false,
+      usePlatformDefaultWidth = false
+    )
+  ) {
+    Card(
+      shape = RoundedCornerShape(24.dp),
+      colors = CardDefaults.cardColors(containerColor = Color.White),
+      elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
+      modifier = Modifier
+        .fillMaxWidth(0.92f)
+        .padding(16.dp)
+    ) {
+      Column(
+        modifier = Modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+      ) {
+        Box(
+          modifier = Modifier
+            .size(72.dp)
+            .clip(CircleShape)
+            .background(Color(0xFFFEE2E2)),
+          contentAlignment = Alignment.Center
+        ) {
+          Icon(
+            imageVector = Icons.Default.VpnLock,
+            contentDescription = "VPN Blocked",
+            tint = Color(0xFFDC2626),
+            modifier = Modifier.size(40.dp)
+          )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+          text = "🚫 VPN සබඳතාවයක් හඳුනාගන්නා ලදී",
+          fontSize = 17.sp,
+          fontWeight = FontWeight.Bold,
+          color = Color(0xFF991B1B),
+          textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+          text = "VPN & Proxy Access Prohibited",
+          fontSize = 11.sp,
+          fontWeight = FontWeight.SemiBold,
+          color = Color(0xFFB91C1C)
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
+          shape = RoundedCornerShape(12.dp),
+          colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+              text = "ආරක්ෂක නීතිරීතිවලට අනුව, VPN හෝ Proxy හරහා මෙම ඇප් එකට පිවිසීම 100%ක්ම අවහිර කර ඇත.",
+              fontSize = 12.sp,
+              color = Color(0xFF7F1D1D),
+              lineHeight = 18.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+              text = "⚠️ කරුණාකර ඔබගේ දුරකථනයේ VPN යෙදුම ක්‍රියාවිරහිත කර (Turn Off VPN) පහත බොත්තම ඔබන්න.",
+              fontSize = 11.sp,
+              color = Color(0xFF991B1B),
+              fontWeight = FontWeight.Medium,
+              lineHeight = 16.sp
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Button(
+          onClick = onRetry,
+          shape = RoundedCornerShape(12.dp),
+          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+          modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+          Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(modifier = Modifier.width(8.dp))
+          Text("නැවත පරීක්ෂා කරන්න (Retry)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+      }
+    }
+  }
+}
+

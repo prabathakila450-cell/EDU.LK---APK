@@ -96,18 +96,55 @@ data class SyllabusUnitItem(
   val practiceQuestions: List<UnitQuestion>,
   val defaultDrivePdfUrl: String = "https://drive.google.com/file/d/1zAddaGRd4loU0yxwWaMDi14G3rcFOvP4/preview",
   val attachedDrivePdfs: MutableList<AttachedGoogleDrivePdf> = mutableListOf()
-)
+) {
+  /**
+   * Returns attached PDFs with all duplicates strictly removed:
+   * 1. Eliminates any attached PDF identical to the primary [defaultDrivePdfUrl].
+   * 2. Eliminates any duplicate occurrences within [attachedDrivePdfs], keeping only 1 copy.
+   * 3. Retains all distinct, non-duplicate notes and papers.
+   */
+  fun getDeduplicatedAttachedPdfs(): List<AttachedGoogleDrivePdf> {
+    val defaultId = extractGoogleDriveFileId(defaultDrivePdfUrl)
+    val seenFileIds = mutableSetOf<String>()
+    if (defaultId.isNotBlank()) {
+      seenFileIds.add(defaultId)
+    }
+    return attachedDrivePdfs.filter { pdf ->
+      val fileId = extractGoogleDriveFileId(pdf.driveUrl)
+      if (fileId.isNotBlank() && seenFileIds.contains(fileId)) {
+        false // Duplicate short note PDF! Completely removed!
+      } else {
+        if (fileId.isNotBlank()) seenFileIds.add(fileId)
+        true // Keep unique PDF
+      }
+    }
+  }
+}
+
+// Helper to extract clean Google Drive File ID for precise deduplication
+fun extractGoogleDriveFileId(url: String): String {
+  val cleanUrl = url.trim()
+  if (cleanUrl.isBlank()) return ""
+  val filePattern = Regex("""drive\.google\.com/file/d/([a-zA-Z0-9_-]+)""")
+  filePattern.find(cleanUrl)?.let { return it.groupValues[1] }
+  val idPattern = Regex("""[?&]id=([a-zA-Z0-9_-]+)""")
+  idPattern.find(cleanUrl)?.let { return it.groupValues[1] }
+  return cleanUrl.substringBefore("/preview").substringAfterLast("/")
+}
 
 // Helper to convert any Google Drive URL into high-performance embeddable preview format
 fun formatToGoogleDriveEmbedUrl(url: String): String {
   val cleanUrl = url.trim()
-  if (cleanUrl.isBlank()) return "https://drive.google.com/file/d/1zAddaGRd4loU0yxwWaMDi14G3rcFOvP4/preview"
+  if (cleanUrl.isBlank() || cleanUrl.contains("1sample_100page_notes")) return "https://drive.google.com/file/d/1V3y65z_15X6zjruQ_I11WhG4EOfDHGm-/preview"
   
   // Format 1: drive.google.com/file/d/{ID}/view...
   val filePattern = Regex("""drive\.google\.com/file/d/([a-zA-Z0-9_-]+)""")
   val match1 = filePattern.find(cleanUrl)
   if (match1 != null) {
     val fileId = match1.groupValues[1]
+    if (fileId.contains("1sample_100page_notes") || fileId.contains("sample")) {
+      return "https://drive.google.com/file/d/1V3y65z_15X6zjruQ_I11WhG4EOfDHGm-/preview"
+    }
     return "https://drive.google.com/file/d/$fileId/preview"
   }
 
@@ -1746,14 +1783,6 @@ object SyllabusRepository {
       defaultDrivePdfUrl = "https://drive.google.com/file/d/17TcFs1wECaHB4C3LMdC8mO2YDKrtrEOI/preview",
       attachedDrivePdfs = mutableListOf(
         AttachedGoogleDrivePdf(
-          id = "sci_g11_pdf_1",
-          title = "11 ශ්‍රේණිය විද්‍යාව පූර්ණ කෙටි සටහන් (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/17TcFs1wECaHB4C3LMdC8mO2YDKrtrEOI/preview",
-          uploadDate = "2026-08-17",
-          fileSize = "3.8 MB",
-          type = "NOTE"
-        ),
-        AttachedGoogleDrivePdf(
           id = "sci_g11_pdf_custom",
           title = "11 ශ්‍රේණිය විද්‍යාව කෙටි සටහන් සංග්‍රහය (Google Drive)",
           driveUrl = "https://drive.google.com/file/d/1b650hE61XIP8RxNWq3TpIxg8pHtTOY8m/preview",
@@ -1875,14 +1904,6 @@ object SyllabusRepository {
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/129U-ITun4kdQJAW0euss4h5S5ZH2IVfl/preview",
       attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "math_g11_pdf_custom",
-          title = "11 ශ්‍රේණිය ගණිතය කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/129U-ITun4kdQJAW0euss4h5S5ZH2IVfl/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "3.5 MB",
-          type = "NOTE"
-        ),
         AttachedGoogleDrivePdf(
           id = "math_g11_term2_papers_custom_4",
           title = "11 ශ්‍රේණිය ගණිතය දෙවන වාර විභාග ප්‍රශ්න පත්‍ර (කට්ටලය 04)",
@@ -2276,16 +2297,7 @@ object SyllabusRepository {
         )
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1eZoyYZlqf8cu94iUaqp50wYgHEUDSuLk/preview",
-      attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "math_g10_pdf_custom",
-          title = "10 ශ්‍රේණිය ගණිතය කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1eZoyYZlqf8cu94iUaqp50wYgHEUDSuLk/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "3.6 MB",
-          type = "NOTE"
-        )
-      )
+      attachedDrivePdfs = mutableListOf()
     ),
 
     // --------------------------------------------------------------------------
@@ -2339,14 +2351,6 @@ object SyllabusRepository {
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1f0MXkYCXZVwJWUzZc49bDx6tRSW8HFJa/preview",
       attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "hist_g11_pdf_custom",
-          title = "11 ශ්‍රේණිය ඉතිහාසය කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1f0MXkYCXZVwJWUzZc49bDx6tRSW8HFJa/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "4.0 MB",
-          type = "NOTE"
-        ),
         AttachedGoogleDrivePdf(
           id = "hist_g11_ol_papers_custom",
           title = "11 ශ්‍රේණිය ඉතිහාසය සාමාන්‍ය පෙළ ප්‍රශ්න පත්‍ර (Google Drive)",
@@ -2443,14 +2447,6 @@ object SyllabusRepository {
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1yDDZxJOdSIZt--KyTdJzKNx0hHmYQOYe/preview",
       attachedDrivePdfs = mutableListOf(
         AttachedGoogleDrivePdf(
-          id = "art_g11_notes_custom_1",
-          title = "11 ශ්‍රේණිය චිත්‍ර කෙටි සටහන් (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1yDDZxJOdSIZt--KyTdJzKNx0hHmYQOYe/preview",
-          uploadDate = "2026-08-30",
-          fileSize = "4.6 MB",
-          type = "NOTE"
-        ),
-        AttachedGoogleDrivePdf(
           id = "art_g11_ol_papers_custom_1",
           title = "11 ශ්‍රේණිය චිත්‍ර කලාව සාමාන්‍ය පෙළ (සා.පෙළ) විභාග ප්‍රශ්න පත්‍ර",
           driveUrl = "https://drive.google.com/file/d/1sgIxFoMazNG1VeFlG0EcZH28oq-mrk9Y/preview",
@@ -2513,14 +2509,6 @@ object SyllabusRepository {
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1me8zGLCFdLyrRMUWnVtICcT8oGQZUqMv/preview",
       attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "hist_g10_pdf_custom",
-          title = "10 ශ්‍රේණිය ඉතිහාසය කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1me8zGLCFdLyrRMUWnVtICcT8oGQZUqMv/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "3.9 MB",
-          type = "NOTE"
-        ),
         AttachedGoogleDrivePdf(
           id = "hist_g10_term3_papers_custom",
           title = "10 ශ්‍රේණිය ඉතිහාසය තෙවන වාර විභාග ප්‍රශ්න පත්‍ර (Google Drive)",
@@ -2591,16 +2579,7 @@ object SyllabusRepository {
         )
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1z4Q0vRbaB20E7-EFqFU-hlU_Uoy2LwcW/preview",
-      attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "art_g10_pdf_custom",
-          title = "10 ශ්‍රේණිය චිත්‍ර කෙටි සටහන් (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1z4Q0vRbaB20E7-EFqFU-hlU_Uoy2LwcW/preview",
-          uploadDate = "2026-08-30",
-          fileSize = "4.2 MB",
-          type = "NOTE"
-        )
-      )
+      attachedDrivePdfs = mutableListOf()
     ),
 
     // --------------------------------------------------------------------------
@@ -2654,14 +2633,6 @@ object SyllabusRepository {
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1N5TV_W4kL891IKIZETGHnMCE_rnRIPKm/preview",
       attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "sci_g10_pdf_custom",
-          title = "10 ශ්‍රේණිය විද්‍යාව කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1N5TV_W4kL891IKIZETGHnMCE_rnRIPKm/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "3.8 MB",
-          type = "NOTE"
-        ),
         AttachedGoogleDrivePdf(
           id = "sci_g10_pdf_1",
           title = "10 ශ්‍රේණිය විද්‍යාව කෙටි සටහන් (Google Drive)",
@@ -2724,16 +2695,7 @@ object SyllabusRepository {
         )
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1-1h9386kmqwW8lDUx5uAkzynL2MKMXVJ/preview",
-      attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "music_g10_pdf_custom",
-          title = "10 ශ්‍රේණිය සංගීතය කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1-1h9386kmqwW8lDUx5uAkzynL2MKMXVJ/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "3.2 MB",
-          type = "NOTE"
-        )
-      )
+      attachedDrivePdfs = mutableListOf()
     ),
 
     // --------------------------------------------------------------------------
@@ -2786,16 +2748,7 @@ object SyllabusRepository {
         )
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/13_lUv-lnGHs_1QDCZj_rlZNT0TWh8ppU/preview",
-      attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "dance_g10_pdf_custom",
-          title = "10 ශ්‍රේණිය නර්තනය කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/13_lUv-lnGHs_1QDCZj_rlZNT0TWh8ppU/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "3.5 MB",
-          type = "NOTE"
-        )
-      )
+      attachedDrivePdfs = mutableListOf()
     ),
 
     // --------------------------------------------------------------------------
@@ -2850,16 +2803,7 @@ object SyllabusRepository {
         )
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1Fc1DqvZWVv7aiIC35KgWfl5Spjj-5WV_/preview",
-      attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "geo_g10_pdf_custom",
-          title = "10 ශ්‍රේණිය භූගෝලය කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1Fc1DqvZWVv7aiIC35KgWfl5Spjj-5WV_/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "3.8 MB",
-          type = "NOTE"
-        )
-      )
+      attachedDrivePdfs = mutableListOf()
     ),
 
     // --------------------------------------------------------------------------
@@ -2913,16 +2857,7 @@ object SyllabusRepository {
         )
       ),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1RB8-GQoOrQbcl-eNnnh779n-jLtWQQFm/preview",
-      attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "civic_g10_pdf_custom",
-          title = "10 ශ්‍රේණිය පුරවැසි අධ්‍යාපනය කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1RB8-GQoOrQbcl-eNnnh779n-jLtWQQFm/preview",
-          uploadDate = "2026-08-25",
-          fileSize = "3.6 MB",
-          type = "NOTE"
-        )
-      )
+      attachedDrivePdfs = mutableListOf()
     ),
 
     // --------------------------------------------------------------------------
@@ -3348,14 +3283,6 @@ object SyllabusRepository {
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1rDvpGxRMBuXPldDRpsZdKjfA0JMr1GVy/preview",
       attachedDrivePdfs = mutableListOf(
         AttachedGoogleDrivePdf(
-          id = "eng_g11_custom_pdf",
-          title = "11 ශ්‍රේණිය ඉංග්‍රීසි කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1rDvpGxRMBuXPldDRpsZdKjfA0JMr1GVy/preview",
-          uploadDate = "2026-08-26",
-          fileSize = "3.9 MB",
-          type = "NOTE"
-        ),
-        AttachedGoogleDrivePdf(
           id = "eng_g11_grammar_all",
           title = "06-11 ශ්‍රේණි ඉංග්‍රීසි ව්‍යාකරණ කෙටි සටහන් (Google Drive)",
           driveUrl = "https://drive.google.com/file/d/155eu00n0_0IdrKc0wiWDqcwkqLa08ndI/preview",
@@ -3389,14 +3316,6 @@ object SyllabusRepository {
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1rDvpGxRMBuXPldDRpsZdKjfA0JMr1GVy/preview",
       attachedDrivePdfs = mutableListOf(
         AttachedGoogleDrivePdf(
-          id = "eng_g10_custom_pdf",
-          title = "10 ශ්‍රේණිය ඉංග්‍රීසි කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1rDvpGxRMBuXPldDRpsZdKjfA0JMr1GVy/preview",
-          uploadDate = "2026-08-26",
-          fileSize = "3.9 MB",
-          type = "NOTE"
-        ),
-        AttachedGoogleDrivePdf(
           id = "eng_g10_grammar_all",
           title = "06-11 ශ්‍රේණි ඉංග්‍රීසි ව්‍යාකරණ කෙටි සටහන් (Google Drive)",
           driveUrl = "https://drive.google.com/file/d/155eu00n0_0IdrKc0wiWDqcwkqLa08ndI/preview",
@@ -3429,14 +3348,6 @@ object SyllabusRepository {
       practiceQuestions = emptyList(),
       defaultDrivePdfUrl = "https://drive.google.com/file/d/1rDvpGxRMBuXPldDRpsZdKjfA0JMr1GVy/preview",
       attachedDrivePdfs = mutableListOf(
-        AttachedGoogleDrivePdf(
-          id = "eng_g09_custom_pdf",
-          title = "09 ශ්‍රේණිය ඉංග්‍රීසි කෙටි සටහන් සංග්‍රහය (Google Drive)",
-          driveUrl = "https://drive.google.com/file/d/1rDvpGxRMBuXPldDRpsZdKjfA0JMr1GVy/preview",
-          uploadDate = "2026-08-26",
-          fileSize = "3.9 MB",
-          type = "NOTE"
-        ),
         AttachedGoogleDrivePdf(
           id = "eng_g09_grammar_all",
           title = "06-11 ශ්‍රේණි ඉංග්‍රීසි ව්‍යාකරණ කෙටි සටහන් (Google Drive)",
@@ -3487,7 +3398,13 @@ object SyllabusRepository {
     }
     
     if (matchSubject.isNotEmpty()) {
-      return matchSubject
+      return matchSubject.map { unit ->
+        if (unit.grade == "10" || unit.grade == "11") {
+          unit.copy(attachedDrivePdfs = unit.getDeduplicatedAttachedPdfs().toMutableList())
+        } else {
+          unit
+        }
+      }
     }
 
     // Never fall back to unrelated subjects like Science for Geography!
@@ -3521,16 +3438,7 @@ object SyllabusRepository {
         memoryTricks = emptyList(),
         practiceQuestions = emptyList(),
         defaultDrivePdfUrl = fallbackDriveUrl,
-        attachedDrivePdfs = mutableListOf(
-          AttachedGoogleDrivePdf(
-            id = "pdf_${grade}_${subject.hashCode()}",
-            title = "$grade ශ්‍රේණිය $subject කෙටි සටහන් (Google Drive)",
-            driveUrl = fallbackDriveUrl,
-            uploadDate = "2026-08-19",
-            fileSize = "2.8 MB",
-            type = "NOTE"
-          )
-        )
+        attachedDrivePdfs = mutableListOf()
       )
     )
   }
@@ -3664,11 +3572,8 @@ fun SyllabusDetectionAndContentScreen(
     )
   }
 
-  val gradeList = listOf("11", "10", "09")
-  val subjectsForGrade = when (selectedGrade) {
-    "11", "10" -> listOf("විද්‍යාව", "ගණිතය", "ඉතිහාසය", "English", "සිංහල", "ICT", "බුද්ධ ධර්මය", "භූගෝල විද්‍යාව", "පුරවැසි අධ්‍යාපනය", "නර්තනය", "සංගීතය", "චිත්‍ර කලාව", "ව්‍යාපාර හා ගිණුම්කරණය")
-    else -> listOf("විද්‍යාව", "ගණිතය", "ඉතිහාසය", "English", "සිංහල", "බුද්ධ ධර්මය", "භූගෝල විද්‍යාව", "පුරවැසි අධ්‍යාපනය", "නර්තනය", "සංගීතය", "චිත්‍ර කලාව", "සෞඛ්‍යය")
-  }
+  val gradeList = listOf("11", "10")
+  val subjectsForGrade = listOf("විද්‍යාව", "ගණිතය", "ඉතිහාසය", "English", "සිංහල", "ICT", "බුද්ධ ධර්මය", "භූගෝල විද්‍යාව", "පුරවැසි අධ්‍යාපනය", "නර්තනය", "සංගීතය", "චිත්‍ර කලාව", "ව්‍යාපාර හා ගිණුම්කරණය")
 
   // Ensure valid subject when grade changes
   LaunchedEffect(selectedGrade) {
@@ -4564,9 +4469,10 @@ fun SyllabusDetectionAndContentScreen(
               }
             }
 
-            // Attached Custom Uploaded Google Drive PDFs
-            if (currentActiveUnit.attachedDrivePdfs.isNotEmpty()) {
-              items(currentActiveUnit.attachedDrivePdfs) { attachedPdf ->
+            // Attached Custom Uploaded Google Drive PDFs (Deduplicated: removes any identical duplicate short note PDFs)
+            val deduplicatedDrivePdfs = currentActiveUnit.getDeduplicatedAttachedPdfs()
+            if (deduplicatedDrivePdfs.isNotEmpty()) {
+              items(deduplicatedDrivePdfs) { attachedPdf ->
                 Card(
                   shape = RoundedCornerShape(16.dp),
                   colors = CardDefaults.cardColors(containerColor = Color.White),

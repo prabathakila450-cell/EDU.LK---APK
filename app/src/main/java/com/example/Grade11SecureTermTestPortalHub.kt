@@ -54,11 +54,18 @@ enum class Grade11WebSource(
   val badgeColor: Color
 ) {
   GOVDOC(
-    title = "GovDoc.lk",
+    title = "GovDoc (11)",
     subtitle = "11 වසර වාර විභාග ප්‍රශ්න පත්‍ර",
     url = GOVDOC_GRADE_11_URL,
-    badge = "TERM TESTS",
+    badge = "GRADE 11",
     badgeColor = Color(0xFF047857)
+  ),
+  GOVDOC_10(
+    title = "GovDoc (10)",
+    subtitle = "10 ශ්‍රේණිය වාර විභාග ප්‍රශ්න පත්‍ර (හවුල් PDF)",
+    url = "https://govdoc.lk/category/term-test-papers/grade-10",
+    badge = "GRADE 10",
+    badgeColor = Color(0xFF059669)
   ),
   ETHAKSALAWA(
     title = "e-Thaksalawa",
@@ -143,19 +150,16 @@ fun Grade11SecureTermTestPortalScreen(
   val context = LocalContext.current
   val activity = context as? Activity
 
-  var hardwareSecureEnabled by remember { mutableStateOf(false) }
+  var hardwareSecureEnabled by remember { mutableStateOf(true) }
 
-  DisposableEffect(hardwareSecureEnabled, activity) {
-    if (hardwareSecureEnabled) {
-      activity?.window?.setFlags(
-        WindowManager.LayoutParams.FLAG_SECURE,
-        WindowManager.LayoutParams.FLAG_SECURE
-      )
-    } else {
-      activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+  DisposableEffect(activity, hardwareSecureEnabled) {
+    activity?.let { act ->
+      AppSecurityManager.applyScreenProtection(act, hardwareSecureEnabled)
     }
     onDispose {
-      activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+      activity?.let { act ->
+        AppSecurityManager.applyScreenProtection(act, false)
+      }
     }
   }
 

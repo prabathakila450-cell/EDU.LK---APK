@@ -643,7 +643,7 @@ fun AdminBroadcastComposerBox(
           .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
       ) {
-        listOf("ALL" to "සියලු සිසුන්ට", "06" to "06 වසර", "07" to "07 වසර", "08" to "08 වසර", "09" to "09 වසර", "10" to "10 වසර", "11" to "11 වසර").forEach { (gradeVal, label) ->
+        listOf("ALL" to "සියලු සිසුන්ට (O/L)", "10" to "10 වසර", "11" to "11 වසර (O/L)").forEach { (gradeVal, label) ->
           val isSelected = selectedTargetGrade == gradeVal
           FilterChip(
             selected = isSelected,

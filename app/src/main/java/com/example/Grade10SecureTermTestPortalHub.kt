@@ -55,15 +55,22 @@ enum class Grade10WebSource(
   val badgeColor: Color
 ) {
   GOVDOC(
-    title = "GovDoc.lk",
+    title = "GovDoc (10)",
     subtitle = "10 වසර වාර විභාග ප්‍රශ්න පත්‍ර",
     url = GOVDOC_GRADE_10_URL,
-    badge = "TERM TESTS",
+    badge = "GRADE 10",
     badgeColor = Color(0xFF047857)
+  ),
+  GOVDOC_11(
+    title = "GovDoc (11)",
+    subtitle = "11 ශ්‍රේණිය වාර විභාග ප්‍රශ්න පත්‍ර (හවුල් PDF)",
+    url = "https://govdoc.lk/category/term-test-papers/grade-11",
+    badge = "GRADE 11",
+    badgeColor = Color(0xFF0284C7)
   ),
   ETHAKSALAWA(
     title = "e-Thaksalawa",
-    subtitle = "10 ශ්‍රේණිය නිල අමාත්‍යාංශ ද්වාරය",
+    subtitle = "10/11 ශ්‍රේණි නිල අමාත්‍යාංශ ද්වාරය",
     url = ETHAKSALAWA_GRADE_10_URL,
     badge = "OFFICIAL MOE",
     badgeColor = Color(0xFF1D4ED8)
@@ -90,11 +97,15 @@ fun Grade10SecureTermTestPortalScreen(
   val context = LocalContext.current
   val activity = context as? Activity
 
-  // Keep screen clear on display streaming and emulators
+  // Keep hardware screen protection active on real devices while keeping emulator preview visible
   DisposableEffect(activity) {
-    activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    activity?.let { act ->
+      AppSecurityManager.applyScreenProtection(act, true)
+    }
     onDispose {
-      activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+      activity?.let { act ->
+        AppSecurityManager.applyScreenProtection(act, false)
+      }
     }
   }
 

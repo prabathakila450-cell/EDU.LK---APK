@@ -1632,7 +1632,8 @@ data class SpokenSentencePractice(
   val englishText: String,
   val phoneticGuide: String,
   val sinhalaMeaning: String,
-  val difficulty: String
+  val difficulty: String,
+  val category: String = "General"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1642,88 +1643,7 @@ fun SpokenEnglishVoiceRecognitionScreen(
 ) {
   val context = LocalContext.current
   var textToSpeech by remember { mutableStateOf<TextToSpeech?>(null) }
-
-  // Practice Sentences
-  val practiceList = listOf(
-    SpokenSentencePractice(
-      "sp_1",
-      "Good morning, my name is Kasun and I study in Grade 11.",
-      "/ɡʊd ˈmɔːnɪŋ maɪ neɪm ɪz kəˈsuːn/",
-      "සුබ උදෑසනක්, මගේ නම කසුන් සහ මම 11 ශ්‍රේණියේ ඉගෙනුම ලබමි.",
-      "Beginner"
-    ),
-    SpokenSentencePractice(
-      "sp_2",
-      "Science and mathematics are my favorite subjects for the O/L examination.",
-      "/ˈsaɪəns ænd ˌmæθəˈmætɪks ɑː maɪ ˈfeɪvərɪt ˈsʌbdʒɪkts/",
-      "විද්‍යාව හා ගණිතය සාමාන්‍ය පෙළ විභාගය සඳහා මගේ ප්‍රියතම විෂයන් වේ.",
-      "Intermediate"
-    ),
-    SpokenSentencePractice(
-      "sp_3",
-      "Protecting the natural environment is the responsibility of every citizen.",
-      "/prəˈtɛktɪŋ ðə ˈnætʃrəl ɪnˈvaɪrənmənt/",
-      "ස්වභාවික පරිසරය ආරක්ෂා කිරීම සෑම පුරවැසියෙකුගේම වගකීමකි.",
-      "Advanced"
-    ),
-    SpokenSentencePractice(
-      "sp_4",
-      "Consistent practice and hard work lead to great success in life.",
-      "/kənˈsɪstənt ˈpræktɪs ænd hɑːd wɜːk/",
-      "නිරන්තර පුහුණුව සහ වෙහෙස මහන්සි වී වැඩ කිරීම ජීවිතයේ උසස් ජයග්‍රහණවලට මඟ පාදයි.",
-      "Intermediate"
-    ),
-    SpokenSentencePractice(
-      "sp_5",
-      "Could you please explain this grammar lesson one more time?",
-      "/kʊd juː pliːz ɪkˈspleɪn ðɪs ˈɡræmər ˈlɛsn/",
-      "කරුණාකර මෙම ව්‍යාකරණ පාඩම තවත් එක් වරක් පැහැදිලි කළ හැකිද?",
-      "Beginner"
-    ),
-    SpokenSentencePractice(
-      "sp_6",
-      "Excuse me, could you kindly show me the way to the school library?",
-      "/ɪkˈskjuːz miː kʊd juː ˈkaɪndli ʃoʊ miː ðə weɪ tuː ðə laɪbrəri/",
-      "සමාවෙන්න, කරුණාකර පාසල් පුස්තකාලයට යන මාර්ගය පෙන්විය හැකිද?",
-      "Beginner"
-    ),
-    SpokenSentencePractice(
-      "sp_7",
-      "Digital technology empowers modern students to learn beyond the classroom.",
-      "/ˈdɪdʒɪtl tɛkˈnɒlədʒi ɪmˈpaʊəz ˈmɒdən ˈstjuːdənts/",
-      "ඩිජිටල් තාක්ෂණය මඟින් නූතන සිසුන්ට පන්ති කාමරයෙන් ඔබ්බට ඉගෙනීමට ශක්තියක් ලබාදෙයි.",
-      "Intermediate"
-    ),
-    SpokenSentencePractice(
-      "sp_8",
-      "Sri Lanka is celebrated worldwide for its breathtaking natural scenery and rich history.",
-      "/sriː ˈlæŋkə ɪz ˈsɛlɪbreɪtɪd ˈwɜːldwaɪd fɔːr ɪts ˈnætʃrəl ˈsiːnəri/",
-      "ශ්‍රී ලංකාව එහි මනරම් ස්වභාවික සෞන්දර්යය සහ පොහොසත් ඉතිහාසය නිසා ලොව පුරා ප්‍රසිද්ධය.",
-      "Advanced"
-    ),
-    SpokenSentencePractice(
-      "sp_9",
-      "Effective communication skills are indispensable for achieving professional milestones.",
-      "/ɪˈfɛktɪv kəˌmjuːnɪˈkeɪʃn skɪlz ɑːr ˌɪndɪˈspɛnsəbl/",
-      "වෘත්තීය ඉලක්ක ජය ගැනීම සඳහා ඵලදායී සන්නිවේදන කුසලතා නැතුවම බැරිය.",
-      "Advanced"
-    ),
-    SpokenSentencePractice(
-      "sp_10",
-      "I am preparing thoroughly to obtain nine distinction passes at the O/L examination.",
-      "/aɪ æm prɪˈpeərɪŋ ˈθʌrəli tuː əbˈteɪn naɪn dɪˈstɪŋkʃn ˈpɑːsɪz/",
-      "සාමාන්‍ය පෙළ විභාගයෙන් විශිෂ්ට සාමාර්ථ (A) නවයක් ලබාගැනීමට මම මනාව සූදානම් වෙමි.",
-      "Intermediate"
-    )
-  )
-
-  var selectedIndex by remember { mutableStateOf(0) }
-  val currentItem = practiceList[selectedIndex]
-
-  var recognizedSpokenText by remember { mutableStateOf("") }
-  var matchAccuracyPercentage by remember { mutableStateOf<Int?>(null) }
-  var isListening by remember { mutableStateOf(false) }
-  var statusMessage by remember { mutableStateOf("මයික්‍රෆෝන් බොත්තම ඔබා ඉංග්‍රීසි වාක්‍යය ශබ්ද නඟා කියවන්න.") }
+  var isTtsReady by remember { mutableStateOf(false) }
 
   // TTS Setup
   DisposableEffect(Unit) {
@@ -1731,6 +1651,7 @@ fun SpokenEnglishVoiceRecognitionScreen(
     tts = TextToSpeech(context) { status ->
       if (status == TextToSpeech.SUCCESS) {
         tts?.language = Locale.US
+        isTtsReady = true
       }
     }
     textToSpeech = tts
@@ -1744,6 +1665,92 @@ fun SpokenEnglishVoiceRecognitionScreen(
     textToSpeech?.setSpeechRate(speed)
     textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "PRACTICE_TTS")
   }
+
+  // Active Sub-Feature Tab: 0 = 200 Sentences, 1 = 100 Dialogues, 2 = 100 Idioms & Phrasals, 3 = 100 Quick Drills
+  var activeSpokenTab by remember { mutableStateOf(0) }
+
+  // -------------------------------------------------------------
+  // TAB 0 STATE: 200 PRACTICE SENTENCES
+  // -------------------------------------------------------------
+  val sentences200 = remember { SpokenEnglish200DataBank.sentences }
+  var sentenceSearchQuery by remember { mutableStateOf("") }
+  var selectedCategory by remember { mutableStateOf("All") }
+  var selectedDifficulty by remember { mutableStateOf("All") }
+
+  val categories = remember {
+    listOf("All", "Classroom", "Greetings", "Daily Life", "Academic", "Technology", "Travel", "Opinions", "Social", "Health", "Motivation")
+  }
+
+  val filteredSentences = remember(sentenceSearchQuery, selectedCategory, selectedDifficulty) {
+    sentences200.filter { item ->
+      val matchesSearch = sentenceSearchQuery.isBlank() ||
+        item.englishText.contains(sentenceSearchQuery, ignoreCase = true) ||
+        item.sinhalaMeaning.contains(sentenceSearchQuery, ignoreCase = true)
+      val matchesCat = selectedCategory == "All" || item.category.equals(selectedCategory, ignoreCase = true)
+      val matchesDiff = selectedDifficulty == "All" || item.difficulty.equals(selectedDifficulty, ignoreCase = true)
+      matchesSearch && matchesCat && matchesDiff
+    }
+  }
+
+  var selectedSentenceIndex by remember { mutableStateOf(0) }
+  val currentItem = if (filteredSentences.isNotEmpty()) {
+    filteredSentences[selectedSentenceIndex.coerceIn(0, filteredSentences.size - 1)]
+  } else {
+    sentences200[0]
+  }
+
+  var recognizedSpokenText by remember { mutableStateOf("") }
+  var matchAccuracyPercentage by remember { mutableStateOf<Int?>(null) }
+  var isListening by remember { mutableStateOf(false) }
+  var statusMessage by remember { mutableStateOf("මයික්‍රෆෝන් බොත්තම ඔබා ඉංග්‍රීසි වාක්‍යය ශබ්ද නඟා කියවන්න.") }
+
+  // -------------------------------------------------------------
+  // TAB 1 STATE: 100 SITUATIONAL DIALOGUES
+  // -------------------------------------------------------------
+  val dialogues100 = remember { SpokenDialogues100DataBank.dialogues }
+  var dialogueSearchQuery by remember { mutableStateOf("") }
+  var selectedDialogueCategory by remember { mutableStateOf("All") }
+  val dialogueCategories = remember {
+    listOf("All", "School & Classroom", "Travel & Transport", "Shopping & Money", "Health & Medical", "Interview & Ambition")
+  }
+  val filteredDialogues = remember(dialogueSearchQuery, selectedDialogueCategory) {
+    dialogues100.filter { dlg ->
+      val matchesSearch = dialogueSearchQuery.isBlank() ||
+        dlg.title.contains(dialogueSearchQuery, ignoreCase = true) ||
+        dlg.textA.contains(dialogueSearchQuery, ignoreCase = true) ||
+        dlg.textB.contains(dialogueSearchQuery, ignoreCase = true) ||
+        dlg.sinhalaA.contains(dialogueSearchQuery, ignoreCase = true) ||
+        dlg.sinhalaB.contains(dialogueSearchQuery, ignoreCase = true)
+      val matchesCat = selectedDialogueCategory == "All" || dlg.category.equals(selectedDialogueCategory, ignoreCase = true)
+      matchesSearch && matchesCat
+    }
+  }
+  var activeDialogueIndex by remember { mutableStateOf(0) }
+
+  // -------------------------------------------------------------
+  // TAB 2 STATE: 100 IDIOMS & PHRASAL VERBS
+  // -------------------------------------------------------------
+  val idioms100 = remember { SpokenIdioms100DataBank.items }
+  var idiomSearchQuery by remember { mutableStateOf("") }
+  var selectedIdiomType by remember { mutableStateOf("All") } // "All", "Idiom", "Phrasal Verb"
+  val filteredIdioms = remember(idiomSearchQuery, selectedIdiomType) {
+    idioms100.filter { item ->
+      val matchesSearch = idiomSearchQuery.isBlank() ||
+        item.phrase.contains(idiomSearchQuery, ignoreCase = true) ||
+        item.sinhalaMeaning.contains(idiomSearchQuery, ignoreCase = true) ||
+        item.englishExplanation.contains(idiomSearchQuery, ignoreCase = true) ||
+        item.exampleDialogue.contains(idiomSearchQuery, ignoreCase = true)
+      val matchesType = selectedIdiomType == "All" || item.category.equals(selectedIdiomType, ignoreCase = true)
+      matchesSearch && matchesType
+    }
+  }
+
+  // -------------------------------------------------------------
+  // TAB 3 STATE: 100 QUICK RESPONSE DRILLS
+  // -------------------------------------------------------------
+  val drills100 = remember { SpokenDrills100DataBank.drills }
+  var activeDrillIndex by remember { mutableStateOf(0) }
+  val drillAnswers = remember { mutableStateMapOf<String, Int>() }
 
   // Calculate similarity
   fun calculateAccuracy(spoken: String, expected: String): Int {
@@ -1767,7 +1774,12 @@ fun SpokenEnglishVoiceRecognitionScreen(
       if (!matches.isNullOrEmpty()) {
         val spoken = matches[0]
         recognizedSpokenText = spoken
-        val accuracy = calculateAccuracy(spoken, currentItem.englishText)
+        val expected = if (activeSpokenTab == 1 && filteredDialogues.isNotEmpty()) {
+          filteredDialogues[activeDialogueIndex.coerceIn(0, filteredDialogues.size - 1)].textB
+        } else {
+          currentItem.englishText
+        }
+        val accuracy = calculateAccuracy(spoken, expected)
         matchAccuracyPercentage = accuracy
         statusMessage = when {
           accuracy >= 85 -> "🌟 විශිෂ්ටයි! ඉතාමත් පැහැදිලි නිවැරදි උච්චාරණයක්! (+50 XP)"
@@ -1788,7 +1800,7 @@ fun SpokenEnglishVoiceRecognitionScreen(
       val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
-        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak the English sentence now...")
+        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak in English now...")
       }
       try {
         isListening = true
@@ -1808,8 +1820,20 @@ fun SpokenEnglishVoiceRecognitionScreen(
       TopAppBar(
         title = {
           Column {
-            Text("🎙️ English Voice & Speech Recognition", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("කටහඬින් උච්චාරණ නිරවද්‍යතාවය මැනීම", fontSize = 10.sp, color = Color(0xFFBAE6FD))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Text("🎙️ Spoken English Master Suite", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+              Spacer(modifier = Modifier.width(6.dp))
+              Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFF38BDF8)) {
+                Text(
+                  text = "500+ CONTENT",
+                  fontSize = 8.5.sp,
+                  fontWeight = FontWeight.ExtraBold,
+                  color = Color(0xFF0C4A6E),
+                  modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                )
+              }
+            }
+            Text("වාක්‍ය 200 • දෙබස් 100 • Idioms 100 • Drills 100", fontSize = 10.sp, color = Color(0xFFBAE6FD))
           }
         },
         navigationIcon = {
@@ -1821,233 +1845,1032 @@ fun SpokenEnglishVoiceRecognitionScreen(
       )
     }
   ) { paddingValues ->
-    LazyColumn(
+    Column(
       modifier = Modifier
         .fillMaxSize()
         .background(Color(0xFFF8FAFC))
         .padding(paddingValues)
-        .padding(16.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-      // SENTENCE SELECTOR CHIPS
-      item {
-        Text("වාක්‍යය තෝරන්න (Practice Sentences):", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
-        Spacer(modifier = Modifier.height(6.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          items(practiceList.size) { idx ->
-            FilterChip(
-              selected = selectedIndex == idx,
+      // MODE SELECTOR NAVIGATION TABS
+      Surface(
+        color = Color(0xFF075985),
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+          horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+          val tabs = listOf(
+            "🎙️ වාක්‍ය 200",
+            "💬 දෙබස් 100",
+            "💡 Idioms 100",
+            "⚡ Drills 100"
+          )
+          tabs.forEachIndexed { index, title ->
+            val isSelected = activeSpokenTab == index
+            Surface(
               onClick = {
-                selectedIndex = idx
+                activeSpokenTab = index
                 recognizedSpokenText = ""
                 matchAccuracyPercentage = null
                 statusMessage = "මයික්‍රෆෝන් බොත්තම ඔබා ඉංග්‍රීසි වාක්‍යය ශබ්ද නඟා කියවන්න."
               },
-              label = { Text("වාක්‍යය ${idx + 1} (${practiceList[idx].difficulty})", fontSize = 11.sp) },
-              colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = Color(0xFF0369A1),
-                selectedLabelColor = Color.White
-              )
-            )
-          }
-        }
-      }
-
-      // CURRENT SENTENCE CARD
-      item {
-        Card(
-          shape = RoundedCornerShape(20.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.5.dp, Color(0xFFBAE6FD)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
+              shape = RoundedCornerShape(8.dp),
+              color = if (isSelected) Color.White else Color.White.copy(alpha = 0.15f),
+              modifier = Modifier.weight(1f)
             ) {
-              Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFFE0F2FE)
+              Box(
+                modifier = Modifier.padding(vertical = 7.dp),
+                contentAlignment = Alignment.Center
               ) {
                 Text(
-                  text = "🎯 ${currentItem.difficulty}",
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = Color(0xFF0369A1),
-                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                  text = title,
+                  fontSize = 10.5.sp,
+                  fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                  color = if (isSelected) Color(0xFF0369A1) else Color.White,
+                  maxLines = 1
                 )
               }
-
-              Row {
-                IconButton(onClick = { speak(currentItem.englishText, 1.0f) }) {
-                  Icon(Icons.Default.VolumeUp, contentDescription = "Speak Normal", tint = Color(0xFF0284C7))
-                }
-                IconButton(onClick = { speak(currentItem.englishText, 0.7f) }) {
-                  Icon(Icons.Default.SlowMotionVideo, contentDescription = "Speak Slow", tint = Color(0xFFD97706))
-                }
-              }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-              text = currentItem.englishText,
-              fontSize = 17.sp,
-              fontWeight = FontWeight.ExtraBold,
-              color = Color(0xFF0F172A),
-              lineHeight = 24.sp
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-              text = currentItem.phoneticGuide,
-              fontSize = 11.sp,
-              fontFamily = FontFamily.Monospace,
-              color = Color(0xFF64748B)
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(color = Color(0xFFF1F5F9))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-              text = "තේරුම: ${currentItem.sinhalaMeaning}",
-              fontSize = 12.sp,
-              color = Color(0xFF334155),
-              lineHeight = 18.sp
-            )
           }
         }
       }
 
-      // MIC RECORD ACTION CARD
-      item {
-        Card(
-          shape = RoundedCornerShape(20.dp),
-          colors = CardDefaults.cardColors(
-            containerColor = if (matchAccuracyPercentage != null && matchAccuracyPercentage!! >= 80) Color(0xFFF0FDF4) else Color(0xFFF8FAFC)
-          ),
-          border = BorderStroke(
-            1.dp,
-            if (matchAccuracyPercentage != null && matchAccuracyPercentage!! >= 80) Color(0xFF86EFAC) else Color(0xFFCBD5E1)
-          ),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+      // CONTENT AREA BASED ON TAB
+      when (activeSpokenTab) {
+        // =========================================================================
+        // TAB 0: 200 SPOKEN SENTENCES WITH REAL-TIME VOICE RECOGNITION
+        // =========================================================================
+        0 -> {
+          LazyColumn(
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
           ) {
-            Text(
-              text = "🎙️ ඔබේ කටහඬ පරීක්ෂා කරන්න",
-              fontSize = 14.sp,
-              fontWeight = FontWeight.Bold,
-              color = Color(0xFF0F172A)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-              text = statusMessage,
-              fontSize = 11.sp,
-              color = Color(0xFF475569),
-              textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Big Mic Button
-            Button(
-              onClick = {
-                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                  val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
-                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak the sentence in English now...")
+            // Search Bar
+            item {
+              OutlinedTextField(
+                value = sentenceSearchQuery,
+                onValueChange = { sentenceSearchQuery = it },
+                placeholder = { Text("වාක්‍ය 200 තුළ සොයන්න (Search in English or Sinhala)...", fontSize = 11.5.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFF0369A1)) },
+                trailingIcon = {
+                  if (sentenceSearchQuery.isNotBlank()) {
+                    IconButton(onClick = { sentenceSearchQuery = "" }) {
+                      Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
+                    }
                   }
-                  try {
-                    isListening = true
-                    statusMessage = "🎙️ සවන්දෙමින් පවතී... දැන් කියවන්න."
-                    speechLauncher.launch(intent)
-                  } catch (e: Exception) {
-                    isListening = false
-                    Toast.makeText(context, "Speech recognition unavailable", Toast.LENGTH_SHORT).show()
-                  }
-                } else {
-                  micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                }
-              },
-              shape = CircleShape,
-              colors = ButtonDefaults.buttonColors(
-                containerColor = if (isListening) Color(0xFFDC2626) else Color(0xFF0284C7)
-              ),
-              modifier = Modifier.size(72.dp)
-            ) {
-              Icon(
-                if (isListening) Icons.Default.Hearing else Icons.Default.Mic,
-                contentDescription = "Mic",
-                tint = Color.White,
-                modifier = Modifier.size(36.dp)
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = Color(0xFF0369A1),
+                  unfocusedBorderColor = Color(0xFFCBD5E1),
+                  focusedContainerColor = Color.White,
+                  unfocusedContainerColor = Color.White
+                ),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
               )
             }
 
-            if (recognizedSpokenText.isNotBlank()) {
-              Spacer(modifier = Modifier.height(16.dp))
-              Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                modifier = Modifier.fillMaxWidth()
-              ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                  Text("ඔබ පැවසූ දෙය (You said):", fontSize = 10.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Bold)
-                  Spacer(modifier = Modifier.height(4.dp))
-                  Text(
-                    text = "\"$recognizedSpokenText\"",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                  )
-
-                  if (matchAccuracyPercentage != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                      modifier = Modifier.fillMaxWidth(),
-                      horizontalArrangement = Arrangement.SpaceBetween,
-                      verticalAlignment = Alignment.CenterVertically
-                    ) {
-                      Text("නිරවද්‍යතාවය (Accuracy):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
-                      Text(
-                        text = "$matchAccuracyPercentage%",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (matchAccuracyPercentage!! >= 80) Color(0xFF16A34A) else if (matchAccuracyPercentage!! >= 50) Color(0xFFD97706) else Color(0xFFDC2626)
+            // Category Filter Chips
+            item {
+              Column {
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Text("මාතෘකාව තෝරන්න (${filteredSentences.size} / 200):", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF1E293B))
+                  Text("Difficulty: $selectedDifficulty", fontSize = 10.sp, color = Color(0xFF0284C7), fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                  items(categories) { cat ->
+                    FilterChip(
+                      selected = selectedCategory == cat,
+                      onClick = {
+                        selectedCategory = cat
+                        selectedSentenceIndex = 0
+                      },
+                      label = { Text(cat, fontSize = 10.sp) },
+                      colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF0369A1),
+                        selectedLabelColor = Color.White
                       )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                      progress = { (matchAccuracyPercentage!! / 100f).coerceIn(0f, 1f) },
-                      modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(CircleShape),
-                      color = if (matchAccuracyPercentage!! >= 80) Color(0xFF16A34A) else if (matchAccuracyPercentage!! >= 50) Color(0xFFD97706) else Color(0xFFDC2626),
-                      trackColor = Color(0xFFE2E8F0)
                     )
                   }
                 }
               }
             }
+
+            // Difficulty Quick Filter Row
+            item {
+              Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("All", "Beginner", "Intermediate", "Advanced").forEach { diff ->
+                  Surface(
+                    onClick = {
+                      selectedDifficulty = diff
+                      selectedSentenceIndex = 0
+                    },
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (selectedDifficulty == diff) Color(0xFF0369A1) else Color(0xFFE2E8F0)
+                  ) {
+                    Text(
+                      text = diff,
+                      fontSize = 9.5.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = if (selectedDifficulty == diff) Color.White else Color(0xFF475569),
+                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                  }
+                }
+              }
+            }
+
+            // Navigation Bar (Previous, Counter, Next)
+            item {
+              Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFFEFF6FF),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  IconButton(
+                    onClick = {
+                      if (selectedSentenceIndex > 0) {
+                        selectedSentenceIndex--
+                        recognizedSpokenText = ""
+                        matchAccuracyPercentage = null
+                      }
+                    },
+                    enabled = selectedSentenceIndex > 0,
+                    modifier = Modifier.size(32.dp)
+                  ) {
+                    Icon(Icons.Default.ArrowBackIos, contentDescription = "Prev", modifier = Modifier.size(16.dp))
+                  }
+
+                  Text(
+                    text = "වාක්‍යය ${selectedSentenceIndex + 1} / ${filteredSentences.size} (${currentItem.category})",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E3A8A)
+                  )
+
+                  IconButton(
+                    onClick = {
+                      if (selectedSentenceIndex < filteredSentences.size - 1) {
+                        selectedSentenceIndex++
+                        recognizedSpokenText = ""
+                        matchAccuracyPercentage = null
+                      }
+                    },
+                    enabled = selectedSentenceIndex < filteredSentences.size - 1,
+                    modifier = Modifier.size(32.dp)
+                  ) {
+                    Icon(Icons.Default.ArrowForwardIos, contentDescription = "Next", modifier = Modifier.size(16.dp))
+                  }
+                }
+              }
+            }
+
+            // CURRENT SENTENCE CARD
+            item {
+              Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.5.dp, Color(0xFFBAE6FD)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                      Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFE0F2FE)) {
+                        Text(
+                          text = "🎯 ${currentItem.difficulty}",
+                          fontSize = 9.5.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color(0xFF0369A1),
+                          modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                      }
+                      Spacer(modifier = Modifier.width(6.dp))
+                      Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFEF3C7)) {
+                        Text(
+                          text = "📂 ${currentItem.category}",
+                          fontSize = 9.5.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color(0xFF92400E),
+                          modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                      }
+                    }
+
+                    Row {
+                      IconButton(
+                        onClick = { speak(currentItem.englishText, 1.0f) },
+                        modifier = Modifier.size(32.dp)
+                      ) {
+                        Icon(Icons.Default.VolumeUp, contentDescription = "Speak Normal", tint = Color(0xFF0284C7), modifier = Modifier.size(18.dp))
+                      }
+                      IconButton(
+                        onClick = { speak(currentItem.englishText, 0.7f) },
+                        modifier = Modifier.size(32.dp)
+                      ) {
+                        Icon(Icons.Default.SlowMotionVideo, contentDescription = "Speak Slow", tint = Color(0xFFD97706), modifier = Modifier.size(18.dp))
+                      }
+                    }
+                  }
+
+                  Spacer(modifier = Modifier.height(8.dp))
+
+                  Text(
+                    text = currentItem.englishText,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A),
+                    lineHeight = 22.sp
+                  )
+
+                  Spacer(modifier = Modifier.height(4.dp))
+
+                  Text(
+                    text = currentItem.phoneticGuide,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color(0xFF64748B)
+                  )
+
+                  Spacer(modifier = Modifier.height(8.dp))
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  Spacer(modifier = Modifier.height(8.dp))
+
+                  Text(
+                    text = "තේරුම: ${currentItem.sinhalaMeaning}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF334155),
+                    lineHeight = 18.sp
+                  )
+                }
+              }
+            }
+
+            // MIC RECORD ACTION CARD
+            item {
+              Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                  containerColor = if (matchAccuracyPercentage != null && matchAccuracyPercentage!! >= 80) Color(0xFFF0FDF4) else Color(0xFFF8FAFC)
+                ),
+                border = BorderStroke(
+                  1.dp,
+                  if (matchAccuracyPercentage != null && matchAccuracyPercentage!! >= 80) Color(0xFF86EFAC) else Color(0xFFCBD5E1)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(
+                  modifier = Modifier.padding(16.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                  Text(
+                    text = "🎙️ මයික්‍රෆෝනයෙන් කථා කර Accuracy ලකුණු ලබාගන්න",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                  )
+
+                  Spacer(modifier = Modifier.height(4.dp))
+
+                  Text(
+                    text = statusMessage,
+                    fontSize = 10.5.sp,
+                    color = Color(0xFF475569),
+                    textAlign = TextAlign.Center
+                  )
+
+                  Spacer(modifier = Modifier.height(14.dp))
+
+                  // Big Mic Button
+                  Button(
+                    onClick = {
+                      if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                          putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                          putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                          putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak the sentence in English now...")
+                        }
+                        try {
+                          isListening = true
+                          statusMessage = "🎙️ සවන්දෙමින් පවතී... දැන් කියවන්න."
+                          speechLauncher.launch(intent)
+                        } catch (e: Exception) {
+                          isListening = false
+                          Toast.makeText(context, "Speech recognition unavailable", Toast.LENGTH_SHORT).show()
+                        }
+                      } else {
+                        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                      }
+                    },
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                      containerColor = if (isListening) Color(0xFFDC2626) else Color(0xFF0284C7)
+                    ),
+                    modifier = Modifier.size(64.dp)
+                  ) {
+                    Icon(
+                      if (isListening) Icons.Default.Hearing else Icons.Default.Mic,
+                      contentDescription = "Mic",
+                      tint = Color.White,
+                      modifier = Modifier.size(32.dp)
+                    )
+                  }
+
+                  if (recognizedSpokenText.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Surface(
+                      shape = RoundedCornerShape(10.dp),
+                      color = Color.White,
+                      border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                      modifier = Modifier.fillMaxWidth()
+                    ) {
+                      Column(modifier = Modifier.padding(12.dp)) {
+                        Text("ඔබ පැවසූ දෙය (You said):", fontSize = 10.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                          text = "\"$recognizedSpokenText\"",
+                          fontSize = 12.5.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color(0xFF0F172A)
+                        )
+
+                        if (matchAccuracyPercentage != null) {
+                          Spacer(modifier = Modifier.height(8.dp))
+                          Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                          ) {
+                            Text("නිරවද්‍යතාවය (Accuracy):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                            Text(
+                              text = "$matchAccuracyPercentage%",
+                              fontSize = 15.sp,
+                              fontWeight = FontWeight.ExtraBold,
+                              color = if (matchAccuracyPercentage!! >= 80) Color(0xFF16A34A) else if (matchAccuracyPercentage!! >= 50) Color(0xFFD97706) else Color(0xFFDC2626)
+                            )
+                          }
+                          Spacer(modifier = Modifier.height(4.dp))
+                          LinearProgressIndicator(
+                            progress = { (matchAccuracyPercentage!! / 100f).coerceIn(0f, 1f) },
+                            modifier = Modifier
+                              .fillMaxWidth()
+                              .height(6.dp)
+                              .clip(CircleShape),
+                            color = if (matchAccuracyPercentage!! >= 80) Color(0xFF16A34A) else if (matchAccuracyPercentage!! >= 50) Color(0xFFD97706) else Color(0xFFDC2626),
+                            trackColor = Color(0xFFE2E8F0)
+                          )
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            item {
+              Spacer(modifier = Modifier.height(30.dp))
+            }
           }
         }
-      }
 
-      item {
-        Spacer(modifier = Modifier.height(30.dp))
+        // =========================================================================
+        // TAB 1: 100 REAL-LIFE SITUATIONAL DIALOGUES
+        // =========================================================================
+        1 -> {
+          LazyColumn(
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+          ) {
+            // Search Bar
+            item {
+              OutlinedTextField(
+                value = dialogueSearchQuery,
+                onValueChange = { dialogueSearchQuery = it },
+                placeholder = { Text("දෙබස් 100 තුළ සොයන්න (Search Dialogues)...", fontSize = 11.5.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFF0369A1)) },
+                trailingIcon = {
+                  if (dialogueSearchQuery.isNotBlank()) {
+                    IconButton(onClick = { dialogueSearchQuery = "" }) {
+                      Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
+                    }
+                  }
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = Color(0xFF0369A1),
+                  unfocusedBorderColor = Color(0xFFCBD5E1),
+                  focusedContainerColor = Color.White,
+                  unfocusedContainerColor = Color.White
+                ),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+              )
+            }
+
+            // Dialogue Category Filter Chips
+            item {
+              Column {
+                Text("දෙබස් කාණ්ඩය තෝරන්න (${filteredDialogues.size} / 100):", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF1E293B))
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                  items(dialogueCategories) { cat ->
+                    FilterChip(
+                      selected = selectedDialogueCategory == cat,
+                      onClick = { selectedDialogueCategory = cat },
+                      label = { Text(cat, fontSize = 10.sp) },
+                      colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF0369A1),
+                        selectedLabelColor = Color.White
+                      )
+                    )
+                  }
+                }
+              }
+            }
+
+            // List of Dialogues
+            items(filteredDialogues.size) { idx ->
+              val dlg = filteredDialogues[idx]
+              Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                      Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFF0284C7)) {
+                        Text(
+                          text = "#${idx + 1}",
+                          fontSize = 9.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color.White,
+                          modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                      }
+                      Spacer(modifier = Modifier.width(6.dp))
+                      Text(
+                        text = dlg.title,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                      )
+                    }
+
+                    Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFFE0F2FE)) {
+                      Text(
+                        text = dlg.category,
+                        fontSize = 8.5.sp,
+                        color = Color(0xFF0369A1),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                      )
+                    }
+                  }
+
+                  Spacer(modifier = Modifier.height(10.dp))
+
+                  // Speaker A Bubble
+                  Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFF1F5F9),
+                    modifier = Modifier.fillMaxWidth()
+                  ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                      Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                      ) {
+                        Text(
+                          text = "🗣️ ${dlg.speakerA}:",
+                          fontSize = 11.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color(0xFF475569)
+                        )
+                        IconButton(
+                          onClick = { speak(dlg.textA) },
+                          modifier = Modifier.size(24.dp)
+                        ) {
+                          Icon(Icons.Default.VolumeUp, contentDescription = "Speak A", tint = Color(0xFF0284C7), modifier = Modifier.size(16.dp))
+                        }
+                      }
+                      Text(dlg.textA, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                      Spacer(modifier = Modifier.height(2.dp))
+                      Text(dlg.sinhalaA, fontSize = 10.5.sp, color = Color(0xFF64748B))
+                    }
+                  }
+
+                  Spacer(modifier = Modifier.height(8.dp))
+
+                  // Speaker B Bubble (with Mic practice)
+                  Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFE0F2FE),
+                    border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
+                    modifier = Modifier.fillMaxWidth()
+                  ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                      Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                      ) {
+                        Text(
+                          text = "🙋‍♂️ ${dlg.speakerB} (ඔබේ වාරය - Your Turn):",
+                          fontSize = 11.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = Color(0xFF0369A1)
+                        )
+                        Row {
+                          IconButton(
+                            onClick = { speak(dlg.textB) },
+                            modifier = Modifier.size(24.dp)
+                          ) {
+                            Icon(Icons.Default.VolumeUp, contentDescription = "Speak B", tint = Color(0xFF0284C7), modifier = Modifier.size(16.dp))
+                          }
+                          Spacer(modifier = Modifier.width(4.dp))
+                          IconButton(
+                            onClick = {
+                              activeDialogueIndex = idx
+                              if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                  putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                  putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                                  putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak Speaker B's response now...")
+                                }
+                                try {
+                                  speechLauncher.launch(intent)
+                                } catch (e: Exception) {
+                                  Toast.makeText(context, "Speech recognition unavailable", Toast.LENGTH_SHORT).show()
+                                }
+                              } else {
+                                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                              }
+                            },
+                            modifier = Modifier.size(24.dp)
+                          ) {
+                            Icon(Icons.Default.Mic, contentDescription = "Record B", tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
+                          }
+                        }
+                      }
+                      Text(dlg.textB, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0369A1))
+                      Spacer(modifier = Modifier.height(2.dp))
+                      Text(dlg.sinhalaB, fontSize = 10.5.sp, color = Color(0xFF334155))
+                    }
+                  }
+                }
+              }
+            }
+
+            item {
+              Spacer(modifier = Modifier.height(30.dp))
+            }
+          }
+        }
+
+        // =========================================================================
+        // TAB 2: 100 SPOKEN IDIOMS & PHRASAL VERBS
+        // =========================================================================
+        2 -> {
+          LazyColumn(
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+          ) {
+            // Search Bar
+            item {
+              OutlinedTextField(
+                value = idiomSearchQuery,
+                onValueChange = { idiomSearchQuery = it },
+                placeholder = { Text("Idioms & Phrasal Verbs 100 තුළ සොයන්න...", fontSize = 11.5.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFF0369A1)) },
+                trailingIcon = {
+                  if (idiomSearchQuery.isNotBlank()) {
+                    IconButton(onClick = { idiomSearchQuery = "" }) {
+                      Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
+                    }
+                  }
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = Color(0xFF0369A1),
+                  unfocusedBorderColor = Color(0xFFCBD5E1),
+                  focusedContainerColor = Color.White,
+                  unfocusedContainerColor = Color.White
+                ),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+              )
+            }
+
+            // Type Filter
+            item {
+              Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("All", "Idiom", "Phrasal Verb").forEach { type ->
+                  Surface(
+                    onClick = { selectedIdiomType = type },
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (selectedIdiomType == type) Color(0xFF0369A1) else Color(0xFFE2E8F0)
+                  ) {
+                    Text(
+                      text = type,
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = if (selectedIdiomType == type) Color.White else Color(0xFF475569),
+                      modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                  }
+                }
+              }
+            }
+
+            // Idioms List
+            items(filteredIdioms.size) { idx ->
+              val item = filteredIdioms[idx]
+              Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                      Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (item.category == "Idiom") Color(0xFFF59E0B) else Color(0xFF0EA5E9)
+                      ) {
+                        Text(
+                          text = item.category.uppercase(),
+                          fontSize = 8.5.sp,
+                          fontWeight = FontWeight.ExtraBold,
+                          color = Color.White,
+                          modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                      }
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text(
+                        text = item.phrase,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                      )
+                    }
+
+                    IconButton(
+                      onClick = { speak(item.phrase) },
+                      modifier = Modifier.size(28.dp)
+                    ) {
+                      Icon(Icons.Default.VolumeUp, contentDescription = "Speak", tint = Color(0xFF0284C7), modifier = Modifier.size(18.dp))
+                    }
+                  }
+
+                  Spacer(modifier = Modifier.height(4.dp))
+                  Text(
+                    text = "🎯 සිංහල අර්ථය: ${item.sinhalaMeaning}",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF15803D)
+                  )
+
+                  Text(
+                    text = "Meaning: ${item.englishExplanation}",
+                    fontSize = 10.5.sp,
+                    color = Color(0xFF64748B)
+                  )
+
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                  ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                      Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                      ) {
+                        Text("💬 කථන උදාහරණය (Dialogue Example):", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                        IconButton(
+                          onClick = { speak(item.exampleDialogue) },
+                          modifier = Modifier.size(20.dp)
+                        ) {
+                          Icon(Icons.Default.VolumeUp, contentDescription = "Audio", tint = Color(0xFF0284C7), modifier = Modifier.size(14.dp))
+                        }
+                      }
+                      Text("\"${item.exampleDialogue}\"", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E293B))
+                      Spacer(modifier = Modifier.height(2.dp))
+                      Text(item.exampleSinhala, fontSize = 10.sp, color = Color(0xFF475569))
+                    }
+                  }
+                }
+              }
+            }
+
+            item {
+              Spacer(modifier = Modifier.height(30.dp))
+            }
+          }
+        }
+
+        // =========================================================================
+        // TAB 3: 100 QUICK RESPONSE DRILLS
+        // =========================================================================
+        3 -> {
+          val currentDrill = drills100[activeDrillIndex.coerceIn(0, drills100.size - 1)]
+          val userSelected = drillAnswers[currentDrill.id]
+          val isAnswered = userSelected != null
+          val isCorrect = userSelected == currentDrill.correctOptionIndex
+
+          LazyColumn(
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+          ) {
+            // Header Stats Bar
+            item {
+              Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF0F172A),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Column {
+                    Text(
+                      text = "⚡ ක්ෂණික පිළිතුරු අභ්‍යාස 100 (Quick Drills)",
+                      fontSize = 12.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color.White
+                    )
+                    Text(
+                      text = "කෙනෙකු යමක් පැවසූ විට වඩාත් නිවැරදි ප්‍රතිචාරය තෝරන්න",
+                      fontSize = 9.5.sp,
+                      color = Color(0xFFBAE6FD)
+                    )
+                  }
+
+                  Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF38BDF8)) {
+                    Text(
+                      text = "${activeDrillIndex + 1} / 100",
+                      fontSize = 11.sp,
+                      fontWeight = FontWeight.ExtraBold,
+                      color = Color(0xFF0F172A),
+                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                  }
+                }
+              }
+            }
+
+            // DRILL CARD
+            item {
+              Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.2.dp, Color(0xFFBAE6FD)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFE0F2FE)) {
+                      Text(
+                        text = "🎯 අවස්ථාව: ${currentDrill.situation}",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0369A1),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                      )
+                    }
+
+                    IconButton(
+                      onClick = { speak(currentDrill.prompt) },
+                      modifier = Modifier.size(32.dp)
+                    ) {
+                      Icon(Icons.Default.VolumeUp, contentDescription = "Pronounce", tint = Color(0xFF0284C7))
+                    }
+                  }
+
+                  Spacer(modifier = Modifier.height(10.dp))
+
+                  Text("අනෙක් පුද්ගලයා පවසන්නේ:", fontSize = 10.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Bold)
+                  Spacer(modifier = Modifier.height(2.dp))
+                  Text(
+                    text = currentDrill.prompt,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                  )
+                  Text(
+                    text = currentDrill.sinhalaPrompt,
+                    fontSize = 11.5.sp,
+                    color = Color(0xFF475569)
+                  )
+
+                  Spacer(modifier = Modifier.height(14.dp))
+                  Text("ඔබේ වඩාත් ආචාරශීලී ප්‍රතිචාරය කුමක්ද?", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0369A1))
+                  Spacer(modifier = Modifier.height(6.dp))
+
+                  // Options
+                  currentDrill.options.forEachIndexed { optIdx, optText ->
+                    val isOptionSelected = userSelected == optIdx
+                    val isOptionCorrect = optIdx == currentDrill.correctOptionIndex
+
+                    Surface(
+                      onClick = {
+                        drillAnswers[currentDrill.id] = optIdx
+                      },
+                      shape = RoundedCornerShape(10.dp),
+                      color = when {
+                        !isAnswered -> Color(0xFFF8FAFC)
+                        isOptionSelected && isOptionCorrect -> Color(0xFFDCFCE7)
+                        isOptionSelected && !isOptionCorrect -> Color(0xFFFEE2E2)
+                        !isOptionSelected && isOptionCorrect && isAnswered -> Color(0xFFDCFCE7)
+                        else -> Color(0xFFF8FAFC)
+                      },
+                      border = BorderStroke(
+                        1.dp,
+                        when {
+                          !isAnswered -> Color(0xFFE2E8F0)
+                          isOptionSelected && isOptionCorrect -> Color(0xFF22C55E)
+                          isOptionSelected && !isOptionCorrect -> Color(0xFFEF4444)
+                          !isOptionSelected && isOptionCorrect && isAnswered -> Color(0xFF22C55E)
+                          else -> Color(0xFFE2E8F0)
+                        }
+                      ),
+                      modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                    ) {
+                      Row(
+                        modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                      ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                          Surface(
+                            shape = CircleShape,
+                            color = when {
+                              !isAnswered -> Color(0xFFCBD5E1)
+                              isOptionCorrect -> Color(0xFF16A34A)
+                              isOptionSelected -> Color(0xFFDC2626)
+                              else -> Color(0xFFCBD5E1)
+                            },
+                            modifier = Modifier.size(20.dp)
+                          ) {
+                            Box(contentAlignment = Alignment.Center) {
+                              Text(
+                                text = "${('A' + optIdx)}",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                              )
+                            }
+                          }
+                          Spacer(modifier = Modifier.width(8.dp))
+                          Text(
+                            text = optText,
+                            fontSize = 12.sp,
+                            fontWeight = if (isOptionSelected || (isAnswered && isOptionCorrect)) FontWeight.Bold else FontWeight.Normal,
+                            color = when {
+                              !isAnswered -> Color(0xFF1E293B)
+                              isOptionCorrect -> Color(0xFF15803D)
+                              isOptionSelected -> Color(0xFFB91C1C)
+                              else -> Color(0xFF64748B)
+                            }
+                          )
+                        }
+
+                        IconButton(
+                          onClick = { speak(optText) },
+                          modifier = Modifier.size(24.dp)
+                        ) {
+                          Icon(Icons.Default.VolumeUp, contentDescription = "Audio", tint = Color(0xFF0284C7), modifier = Modifier.size(16.dp))
+                        }
+                      }
+                    }
+                  }
+
+                  // Explanation
+                  if (isAnswered) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                      shape = RoundedCornerShape(8.dp),
+                      color = if (isCorrect) Color(0xFFF0FDF4) else Color(0xFFFEF2F2),
+                      border = BorderStroke(1.dp, if (isCorrect) Color(0xFF86EFAC) else Color(0xFFFCA5A5)),
+                      modifier = Modifier.fillMaxWidth()
+                    ) {
+                      Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                          text = if (isCorrect) "🌟 100% නිවැරදියි!" else "💡 නිවැරදි පිළිතුර විවරණය:",
+                          fontSize = 11.5.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = if (isCorrect) Color(0xFF16A34A) else Color(0xFFDC2626)
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                          text = currentDrill.sinhalaExplanation,
+                          fontSize = 10.5.sp,
+                          color = Color(0xFF334155),
+                          lineHeight = 15.sp
+                        )
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // Bottom Navigation Buttons (Previous / Next Drill)
+            item {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+              ) {
+                Button(
+                  onClick = {
+                    if (activeDrillIndex > 0) activeDrillIndex--
+                  },
+                  enabled = activeDrillIndex > 0,
+                  colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF475569)),
+                  shape = RoundedCornerShape(8.dp)
+                ) {
+                  Text("⬅️ පෙර ප්‍රශ්නය", fontSize = 11.sp)
+                }
+
+                Button(
+                  onClick = {
+                    if (activeDrillIndex < drills100.size - 1) activeDrillIndex++
+                  },
+                  enabled = activeDrillIndex < drills100.size - 1,
+                  colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                  shape = RoundedCornerShape(8.dp)
+                ) {
+                  Text("ඊළඟ ප්‍රශ්නය ➡️", fontSize = 11.sp)
+                }
+              }
+            }
+
+            item {
+              Spacer(modifier = Modifier.height(30.dp))
+            }
+          }
+        }
       }
     }
   }

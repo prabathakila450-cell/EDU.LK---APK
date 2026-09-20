@@ -65,14 +65,19 @@ object SyllabusUnitsRepository {
       }
       (normalizedGrade == "ALL" || uGrade == normalizedGrade) &&
         (cleanSubj == "සියල්ල" || unit.subject.contains(cleanSubj) || cleanSubj.contains(unit.subject))
-    }.sortedWith(compareBy({ it.grade }, { it.unitNumber }))
+    }
 
-    if (filtered.isNotEmpty()) return filtered
+    val extra = ComprehensiveSyllabusProvider.getCurriculumFor(normalizedGrade, cleanSubj)
+    val combined = (filtered + extra)
+      .distinctBy { "${it.grade}_${it.subject}_${it.titleSinhala}" }
+      .sortedWith(compareBy({ it.grade }, { it.unitNumber }))
+
+    if (combined.isNotEmpty()) return combined
     return getFoundationalUnitsForGrade(normalizedGrade, cleanSubj)
   }
 
   fun findUnitById(id: String): SyllabusUnit? {
-    return allUnits.firstOrNull { it.id == id }
+    return allUnits.firstOrNull { it.id == id } ?: ComprehensiveSyllabusProvider.getCurriculumFor("11", "සියල්ල").firstOrNull { it.id == id }
   }
 
   private fun buildAllSyllabusUnits(): List<SyllabusUnit> {

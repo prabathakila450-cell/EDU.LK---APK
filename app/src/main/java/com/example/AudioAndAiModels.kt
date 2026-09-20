@@ -90,7 +90,7 @@ object ChapterRepository {
     return SubjectHubData(
       grade = grade,
       subject = subjectName,
-      short_notes_pdf_url = if (pdfUrl.isNotBlank()) pdfUrl else "https://drive.google.com/file/d/1sample_100page_notes/preview",
+      short_notes_pdf_url = if (pdfUrl.isNotBlank() && !pdfUrl.contains("1sample_100page_notes")) pdfUrl else "https://drive.google.com/file/d/1V3y65z_15X6zjruQ_I11WhG4EOfDHGm-/preview",
       chapters = chapters,
       quiz_sets = quizData.quiz_sets
     )
